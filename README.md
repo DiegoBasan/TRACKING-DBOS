@@ -62,5 +62,7 @@ match /tracking-dbos/{doc=**} {
 2. Ejecútalo una vez dentro de Scriptable para ver la vista previa.
 3. En la pantalla de inicio: mantén presionado → **+** → Scriptable → tamaño **mediano** → edita el widget → Script: `Tracker`.
 
+**Versión calendario:** [`widget/tracker-widget-calendario.js`](widget/tracker-widget-calendario.js) — calendario a todo lo ancho con las tareas como barras. En *Parameter* del widget: vacío = mes, `2` o `3` = solo esas semanas (más legible).
+
 Lee Firestore directo (API REST, solo lectura) y usa las mismas categorías de [`categorias.js`](categorias.js).
 Si no hay internet muestra lo último guardado. Tocarlo abre la app.
