@@ -3,31 +3,17 @@
 // icon-color: deep-gray; icon-glyph: calendar;
 
 /* =========================================================
-   Tracker · Widget CALENDARIO mediano (2×1) para Scriptable
-   Calendario a todo lo ancho con las tareas como barras de texto.
-   Parámetro del widget (opcional):
-     (vacío) o "mes" → mes completo
-     "2" o "3"       → solo 2 o 3 semanas desde la actual (más legible)
-   Datos: Firestore (diagram-diapp / tracking-dbos) vía REST
+   Tracker · Widget CALENDARIO (mediano o grande) para Scriptable
+   Estilo de la app: celdas redondeadas y barras de colores que cruzan los días.
+   Parámetro del widget (opcional, separado por comas):
+     semanas: vacío/"mes" = mes completo · "2" o "3" = esas semanas desde la actual
+     tema:    "oscuro" · "claro" · (vacío = automático)
+   Ejemplos:  oscuro   ·   2,oscuro   ·   mes,claro
    ========================================================= */
-
 const APP_URL = 'https://diegobasan.github.io/TRACKING-DBOS/';
 const API_KEY = 'AIzaSyDfWuyJFV2vV8yQAdngrorTMZWn9p0DIqI';
 const FS_URL = 'https://firestore.googleapis.com/v1/projects/diagram-diapp/databases/(default)/documents/tracking-dbos/app/actividades?pageSize=300&key=' + API_KEY;
 const CAT_URL = APP_URL + 'categorias.js';
-
-// ---------- Colores (claro / oscuro) ----------
-const dyn = (l, d) => Color.dynamic(new Color(l), new Color(d));
-const C = {
-  bg: dyn('#ffffff', '#141414'),
-  ink: dyn('#141414', '#f0f0f0'),
-  inv: dyn('#ffffff', '#141414'),
-  mut: dyn('#8b8b8b', '#8a8a8a'),
-  out: dyn('#c4c4c4', '#4a4a4a'),
-  soft: dyn('#f2f2f2', '#222222'),
-  red: dyn('#e5262f', '#ff4d55'),
-};
-const alpha = (hex, a) => new Color(hex, a);
 
 // ---------- Caché local ----------
 const fm = FileManager.local();
@@ -107,24 +93,29 @@ function status(a) {
   return a.estado || 'Pendiente';
 }
 
-// ---------- Símbolos ----------
-function sym(key, size, weight) {
-  const name = CAT.ICON_SF[key] || 'circle.fill';
-  let s = SFSymbol.named(name) || SFSymbol.named('circle.fill');
-  s.applyFont(weight === 'bold' ? Font.boldSystemFont(size) : Font.semiboldSystemFont(size));
-  return s.image;
+// ---------- Tamaño del widget ----------
+function widgetSize(fam) {
+  const s = Device.screenSize(), W = Math.min(s.width, s.height);
+  const M = { 440: [364, 170], 430: [364, 170], 428: [364, 170], 414: [360, 169], 402: [338, 158], 393: [338, 158], 390: [338, 158], 375: [329, 155], 360: [329, 155], 320: [292, 141] };
+  const L = { 440: [364, 382], 430: [364, 382], 428: [364, 382], 414: [360, 379], 402: [338, 354], 393: [338, 354], 390: [338, 354], 375: [329, 345], 360: [329, 345], 320: [292, 311] };
+  return ((fam === 'large' ? L : M)[W]) || (fam === 'large' ? [338, 354] : [338, 158]);
 }
 
-// ---------- Tamaño del widget mediano según el iPhone ----------
-function widgetSize() {
-  const w = Device.screenSize().width, h = Device.screenSize().height;
-  const W = Math.min(w, h);
-  const T = { 440: [364, 170], 430: [364, 170], 428: [364, 170], 414: [360, 169], 402: [338, 158], 393: [338, 158], 390: [338, 158], 375: [329, 155], 360: [329, 155], 320: [292, 141] };
-  return T[W] || [338, 158];
-}
+// ---------- Tema ----------
+const THEMES = {
+  oscuro: { bg: '#1e1e1e', tile: '#151515', tileOut: '#191919', ink: '#f0f0f0', inv: '#141414', mut: '#858585', out: '#4a4a4a', red: '#ff4d55' },
+  claro:  { bg: '#ececec', tile: '#ffffff', tileOut: '#f5f5f5', ink: '#141414', inv: '#ffffff', mut: '#8b8b8b', out: '#c2c2c2', red: '#e5262f' },
+};
 
 // =========================================================
 async function main() {
+  const fam0 = String(args.widgetParameter || '').toLowerCase();
+  const fam = config.widgetFamily || (fam0.includes('grande') ? 'large' : 'medium');
+  const tokens = String(args.widgetParameter || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
+  const themeName = tokens.includes('oscuro') ? 'oscuro' : tokens.includes('claro') ? 'claro' : (Device.isUsingDarkAppearance() ? 'oscuro' : 'claro');
+  const T = THEMES[themeName];
+  const weeksParam = tokens.find(t => t === '2' || t === '3') || 'mes';
+
   const catRes = await getText(CAT_URL, 'cats.js');
   CAT = JSON.parse(catRes.t.slice(catRes.t.indexOf('{'), catRes.t.lastIndexOf('}') + 1));
   prepCats();
@@ -132,115 +123,122 @@ async function main() {
   const docs = (JSON.parse(fsRes.t).documents || []).map(d => obj(d.fields || {}));
   const acts = docs.filter(a => a.id && a.inicio).map(a => ({ ...a, fin: a.fin || a.inicio }));
 
-  const PADX = 8, PADY = 8;
-  const [WW, WH] = widgetSize();
-  const innerW = WW - PADX * 2, innerH = WH - PADY * 2;
-  const colW = Math.floor(innerW / 7);
-
-  // Rango de semanas
-  const param = String(args.widgetParameter || 'mes').trim().toLowerCase();
+  // Rango
   let start, end;
-  if (param === '2' || param === '3') {
-    start = addD(now, -now.getDay());
-    end = addD(start, Number(param) * 7 - 1);
-  } else {
+  if (weeksParam !== 'mes') { start = addD(now, -now.getDay()); end = addD(start, Number(weeksParam) * 7 - 1) }
+  else {
     const first = new Date(now.getFullYear(), now.getMonth(), 1), last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     start = addD(first, -first.getDay()); end = addD(last, 6 - last.getDay());
   }
-  const nWeeks = Math.round((end - start) / 864e5 + 1) / 7;
+  const nW = Math.round((end - start) / 864e5 + 1) / 7;
 
-  const w = new ListWidget();
-  w.backgroundColor = C.bg;
-  w.setPadding(PADY, PADX, PADY, PADX);
-  w.url = APP_URL;
-  w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
+  // Medidas
+  const [WW, WH] = widgetSize(fam);
+  const big = fam === 'large';
+  const PAD = big ? 12 : 9, GAP = big ? 3.5 : 2.5;
+  const HEAD = big ? 20 : 14, DOW = big ? 14 : 10;
+  const gridW = WW - PAD * 2, gridH = WH - PAD * 2 - HEAD - DOW;
+  const tileW = (gridW - GAP * 6) / 7;
+  const weekH = (gridH - GAP * (nW - 1)) / nW;
+  const NUM = big ? 16 : (weekH > 40 ? 12 : 10.5);
+  const laneH = big ? 12.5 : (weekH > 40 ? 10.5 : 9);
+  const FS = big ? 8.5 : (weekH > 40 ? 7.2 : 6.3);
+  const NUMFS = big ? 10.5 : 7.5;
+  const maxLanes = Math.max(1, Math.floor((weekH - NUM - 2) / laneH));
+
+  const ctx = new DrawContext();
+  ctx.size = new Size(WW, WH);
+  ctx.respectScreenScale = true;
+  ctx.opaque = true;
+  const fill = (c, a = 1) => ctx.setFillColor(new Color(c, a));
+  // mezcla sólida de dos colores hex (evita transparencias sobre los huecos)
+  const mix = (c1, c2, t) => { const h = x => [1, 3, 5].map(i => parseInt(x.replace('#', '').padEnd(6, '0').slice(i - 1, i + 1), 16));
+    const a = h(c1), b = h(c2); return '#' + a.map((v, i) => Math.round(v * t + b[i] * (1 - t)).toString(16).padStart(2, '0')).join('') };
+  const rr = (x, y, w, h, r) => { const p = new Path(); p.addRoundedRect(new Rect(x, y, w, h), r, r); return p };
+  const text = (s, x, y, w, h, fs, color, opts = {}) => {
+    ctx.setFont(opts.mono ? Font.mediumMonospacedSystemFont(fs) : opts.weight === 'heavy' ? Font.heavySystemFont(fs) : opts.weight === 'semi' ? Font.semiboldSystemFont(fs) : Font.boldSystemFont(fs));
+    ctx.setTextColor(new Color(color));
+    if (opts.align === 'center') ctx.setTextAlignedCenter(); else if (opts.align === 'right') ctx.setTextAlignedRight(); else ctx.setTextAlignedLeft();
+    ctx.drawTextInRect(s, new Rect(x, y, w, h));
+  };
+  // recorta el texto a una línea (aprox. por ancho promedio de carácter)
+  const fit = (s, w, fs) => { const n = Math.max(1, Math.floor(w / (fs * 0.53))); return s.length > n ? s.slice(0, Math.max(1, n - 1)).trimEnd() + '…' : s };
+
+  // Fondo
+  fill(T.bg); ctx.fillRect(new Rect(0, 0, WW, WH));
 
   // Encabezado
-  const HEAD = 13, DOW = 9, GAP = 1.5;
-  const h = w.addStack(); h.layoutHorizontally(); h.centerAlignContent(); h.size = new Size(innerW, HEAD);
-  const tt = h.addText(MES[now.getMonth()].replace(/^./, c => c.toUpperCase()) + ' ' + now.getFullYear());
-  tt.font = Font.heavySystemFont(11); tt.textColor = C.ink;
-  h.addSpacer();
+  const mesTxt = MES[now.getMonth()].replace(/^./, c => c.toUpperCase()) + ' ' + now.getFullYear();
+  text(mesTxt, PAD + 2, PAD - 1, gridW / 2, HEAD, big ? 14 : 10.5, T.ink, { weight: 'heavy' });
   const activas = acts.filter(a => a.inicio <= TODAY && a.fin >= TODAY && status(a) !== 'Completada').length;
-  const ht = h.addText(fsRes.offline ? 'sin conexión' : `Hoy ${DIA3[now.getDay()]} ${now.getDate()} · ${activas} activas`);
-  ht.font = Font.semiboldSystemFont(8.5); ht.textColor = fsRes.offline ? C.red : C.mut;
+  text(fsRes.offline ? 'sin conexión' : `Hoy ${DIA3[now.getDay()]} ${now.getDate()} · ${activas} activas`, PAD + gridW / 2, PAD + (big ? 2 : 1), gridW / 2 - 2, HEAD, big ? 9.5 : 7.5, fsRes.offline ? T.red : T.mut, { weight: 'semi', align: 'right' });
 
-  const dow = w.addStack(); dow.size = new Size(innerW, DOW);
-  ['D', 'L', 'M', 'M', 'J', 'V', 'S'].forEach(l => {
-    const c = dow.addStack(); c.size = new Size(colW, DOW); c.centerAlignContent();
-    const x = c.addText(l); x.font = Font.mediumMonospacedSystemFont(7); x.textColor = C.mut;
-  });
+  // Días de la semana
+  const top0 = PAD + HEAD;
+  ['D', 'L', 'M', 'M', 'J', 'V', 'S'].forEach((l, i) => text(l, PAD + i * (tileW + GAP), top0, tileW, DOW, big ? 8.5 : 6.5, T.mut, { mono: true, align: 'center' }));
 
-  // Alto disponible por semana
-  const weekH = Math.floor((innerH - HEAD - DOW - GAP * (nWeeks - 1)) / nWeeks);
-  const NUM = nWeeks >= 6 ? 8.5 : 10;               // fila del número de día
-  const laneH = nWeeks <= 2 ? 12 : nWeeks === 3 ? 11 : Math.max(7.5, Math.min(9.5, weekH - NUM - 1));
-  const fontS = nWeeks <= 2 ? 8 : nWeeks === 3 ? 7.5 : 6.5;
-  const maxLanes = Math.max(1, Math.floor((weekH - NUM - 1) / laneH));
+  const gy = top0 + DOW;
+  for (let k = 0, ws = start; k < nW; k++, ws = addD(ws, 7)) {
+    const y = gy + k * (weekH + GAP), wsS = Y(ws), weS = Y(addD(ws, 6));
 
-  for (let ws = start, k = 0; ws <= end; ws = addD(ws, 7), k++) {
-    if (k) w.addSpacer(GAP);
-    const wsS = Y(ws), weS = Y(addD(ws, 6));
-    const week = w.addStack(); week.layoutVertically(); week.size = new Size(innerW, weekH);
-    week.backgroundColor = C.soft; week.cornerRadius = 5;
-
-    // números
-    const nr = week.addStack(); nr.size = new Size(innerW, NUM);
+    // Celdas
     for (let i = 0; i < 7; i++) {
-      const d = addD(ws, i), ds = Y(d), inMonth = param.match(/^[23]$/) || d.getMonth() === now.getMonth();
-      const c = nr.addStack(); c.size = new Size(colW, NUM); c.layoutHorizontally(); c.setPadding(1, 3, 0, 0);
-      const nb = c.addStack(); nb.centerAlignContent(); nb.cornerRadius = 4.5; nb.setPadding(0, 2.5, 0, 2.5);
-      if (ds === TODAY) nb.backgroundColor = C.ink;
-      const n = nb.addText((d.getDate() === 1 && param.match(/^[23]$/) ? MES3[d.getMonth()] + ' ' : '') + d.getDate());
-      n.font = ds === TODAY ? Font.heavySystemFont(7.5) : Font.semiboldSystemFont(7.5);
-      n.textColor = ds === TODAY ? C.inv : inMonth ? C.ink : C.out;
-      c.addSpacer();
+      const d = addD(ws, i), ds = Y(d), x = PAD + i * (tileW + GAP);
+      const inMonth = weeksParam !== 'mes' || d.getMonth() === now.getMonth();
+      fill(inMonth ? T.tile : T.tileOut); ctx.addPath(rr(x, y, tileW, weekH, big ? 8 : 5)); ctx.fillPath();
+      const label = (weeksParam !== 'mes' && d.getDate() === 1 ? MES3[d.getMonth()] + ' ' : '') + d.getDate();
+      if (ds === TODAY) {
+        const cs = NUMFS + (big ? 8 : 5.5);
+        fill(T.ink); ctx.fillEllipse(new Rect(x + (big ? 5 : 3), y + (big ? 3 : 2), cs, cs));
+        text(label, x + (big ? 5 : 3), y + (big ? 3 : 2) + (cs - NUMFS * 1.25) / 2, cs, cs, NUMFS, T.inv, { align: 'center', weight: 'heavy' });
+        ctx.setStrokeColor(new Color(T.ink)); ctx.setLineWidth(big ? 1.6 : 1.2);
+        ctx.addPath(rr(x + 0.6, y + 0.6, tileW - 1.2, weekH - 1.2, big ? 8 : 5)); ctx.strokePath();
+      } else {
+        text(label, x + (big ? 8 : 5), y + (big ? 4 : 2.5), tileW, NUM, NUMFS, inMonth ? T.ink : T.out, { weight: 'semi' });
+      }
     }
 
-    // carriles de tareas
+    // Carriles de tareas
     const ev = acts.filter(a => a.inicio <= weS && a.fin >= wsS)
-      .sort((a, b) => a.inicio.localeCompare(b.inicio) || (P(b.fin) - P(b.inicio)) - (P(a.fin) - P(a.inicio)) || (a.titulo || '').localeCompare(b.titulo || ''));
+      .sort((a, b) => (status(a) === 'Completada') - (status(b) === 'Completada') || a.inicio.localeCompare(b.inicio) || (P(b.fin) - P(b.inicio)) - (P(a.fin) - P(a.inicio)) || (a.titulo || '').localeCompare(b.titulo || ''));
     const lanes = [], hidden = Array(7).fill(0);
     ev.forEach(a => {
       const c0 = Math.max(0, Math.round((P(a.inicio) - P(wsS)) / 864e5)), c1 = Math.min(6, Math.round((P(a.fin) - P(wsS)) / 864e5));
       let l = lanes.findIndex(L => L.end < c0); if (l < 0) { l = lanes.length; lanes.push({ end: -1, segs: [] }) }
-      lanes[l].end = c1; lanes[l].segs.push({ a, c0, c1 });
+      lanes[l].end = c1; lanes[l].segs.push({ a, c0, c1, cl: a.inicio < wsS, cr: a.fin > weS });
     });
-    const overflow = lanes.length > maxLanes;
-    const show = overflow ? Math.max(0, maxLanes - 1) : lanes.length;
+    const show = Math.min(lanes.length, maxLanes);
     lanes.slice(show).forEach(L => L.segs.forEach(s => { for (let c = s.c0; c <= s.c1; c++) hidden[c]++ }));
 
-    lanes.slice(0, show).forEach(L => {
-      const r = week.addStack(); r.layoutHorizontally(); r.size = new Size(innerW, laneH); r.centerAlignContent();
-      let cur = 0;
-      L.segs.forEach(({ a, c0, c1 }) => {
-        if (c0 > cur) r.addSpacer((c0 - cur) * colW);
-        const s = status(a), c = CAT.CATS[catOf(a)].c, span = c1 - c0 + 1;
-        const bar = r.addStack(); bar.size = new Size(span * colW - 2, laneH - 1.5); bar.cornerRadius = 2.5;
-        bar.layoutHorizontally(); bar.centerAlignContent(); bar.setPadding(0, 2.5, 0, 2);
-        bar.backgroundColor = s === 'En curso' ? new Color(c) : alpha(c, s === 'Completada' ? 0.1 : 0.2);
-        if (span >= 2) {
-          const im = bar.addImage(sym(iconOf(a), 7, 'bold')); im.imageSize = new Size(fontS, fontS);
-          im.tintColor = s === 'En curso' ? Color.white() : alpha(c, s === 'Completada' ? 0.4 : 1);
-          bar.addSpacer(2);
+    lanes.slice(0, show).forEach((L, li) => {
+      const by = y + NUM + li * laneH + (big ? 2 : 1);
+      L.segs.forEach(({ a, c0, c1, cl, cr }) => {
+        const s = status(a), c = CAT.CATS[catOf(a)].c;
+        const x0 = PAD + c0 * (tileW + GAP) + (cl ? -GAP / 2 : 1.5);
+        const x1 = PAD + c1 * (tileW + GAP) + tileW + (cr ? GAP / 2 : -1.5);
+        const bh = laneH - (big ? 2.5 : 1.8), r = big ? 4 : 2.5;
+        fill(s === 'En curso' ? c : mix(c, T.tile, s === 'Completada' ? 0.14 : 0.3));
+        ctx.addPath(rr(x0, by, x1 - x0, bh, r)); ctx.fillPath();
+        const tc = s === 'En curso' ? '#ffffff' : s === 'Completada' ? T.mut : c;
+        const padL = big ? 5 : 3, ty = by + (bh - FS * 1.22) / 2;
+        const label = fit(a.titulo || '', x1 - x0 - padL * 2, FS);
+        text(label, x0 + padL, ty, x1 - x0 - padL, bh, FS, tc);
+        if (s === 'Completada') { // tachado
+          fill(T.mut, 0.9); ctx.fillRect(new Rect(x0 + padL, by + bh / 2, Math.min(x1 - x0 - padL * 2, label.length * FS * 0.52), 0.7));
         }
-        const t = bar.addText(a.titulo || ''); t.font = Font.boldSystemFont(fontS); t.lineLimit = 1; t.minimumScaleFactor = 0.75;
-        t.textColor = s === 'En curso' ? Color.white() : s === 'Completada' ? C.mut : new Color(c);
-        bar.addSpacer();
-        r.addSpacer(2);
-        cur = c1 + 1;
       });
-      r.addSpacer();
     });
-    if (overflow) {
-      const r = week.addStack(); r.layoutHorizontally(); r.size = new Size(innerW, laneH);
-      hidden.forEach(n => { const c = r.addStack(); c.size = new Size(colW, laneH); c.centerAlignContent();
-        if (n) { const t = c.addText('+' + n); t.font = Font.boldSystemFont(fontS); t.textColor = C.mut } });
-    }
-    week.addSpacer();
+    // "+n" en la esquina de la celda cuando no caben
+    hidden.forEach((n, c) => { if (n) text('+' + n, PAD + c * (tileW + GAP), y + (big ? 4 : 2.5), tileW - (big ? 7 : 4), NUM, NUMFS * 0.85, T.mut, { align: 'right' }) });
   }
 
+  const w = new ListWidget();
+  w.setPadding(0, 0, 0, 0);
+  w.backgroundImage = ctx.getImage();
+  w.url = APP_URL;
+  w.refreshAfterDate = new Date(Date.now() + 15 * 60 * 1000);
   if (config.runsInWidget) Script.setWidget(w);
+  else if (tokens.includes('grande') || fam === 'large') await w.presentLarge();
   else await w.presentMedium();
   Script.complete();
 }
@@ -248,10 +246,10 @@ async function main() {
 // ---------- Errores ----------
 try { await main() }
 catch (e) {
-  const w = new ListWidget(); w.backgroundColor = C.bg; w.url = APP_URL;
-  const t = w.addText('Tracker'); t.font = Font.heavySystemFont(13); t.textColor = C.ink;
+  const w = new ListWidget(); w.backgroundColor = new Color('#1e1e1e'); w.url = APP_URL;
+  const t = w.addText('Tracker'); t.font = Font.heavySystemFont(13); t.textColor = Color.white();
   w.addSpacer(4);
-  const m = w.addText('No se pudo cargar: ' + e.message); m.font = Font.mediumSystemFont(10); m.textColor = C.mut;
+  const m = w.addText('No se pudo cargar: ' + e.message); m.font = Font.mediumSystemFont(10); m.textColor = Color.gray();
   if (config.runsInWidget) Script.setWidget(w); else await w.presentMedium();
   Script.complete();
 }
