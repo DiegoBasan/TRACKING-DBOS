@@ -1,0 +1,28 @@
+name: Sincronizar Notion
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # cada 15 min (GitHub puede retrasarlo unos minutos)
+  workflow_dispatch:
+
+concurrency: notion-sync
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    defaults:
+      run:
+        working-directory: scripts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: node notion-sync.mjs
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          NOTION_DB_ID: 68baf48f9c2943ff973d460a3615664b
+          TZ_APP: America/Chihuahua

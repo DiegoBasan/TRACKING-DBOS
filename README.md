@@ -66,3 +66,14 @@ match /tracking-dbos/{doc=**} {
 
 Lee Firestore directo (API REST, solo lectura) y usa las mismas categorías de [`categorias.js`](categorias.js).
 Si no hay internet muestra lo último guardado. Tocarlo abre la app.
+
+## Notion → Tracker (tareas de trabajo en "HOY")
+Cada 15 min, GitHub Actions trae del **Task Tracker** de JOHN DEERE AUTOMATION las tareas con `STATUS = HOY`
+y las pone en el calendario como **Trabajo** (azul) con una marca **N**. Si ya no están en HOY, se quitan.
+Si la marcas **Completada** en la app, en Notion pasa a **Done**. Si su fecha ya pasó y sigue en HOY, aparece en el día de hoy.
+
+Configuración (una vez):
+1. https://www.notion.so/profile/integrations → **New integration** (interna) → copia el *Internal Integration Secret*.
+2. En Notion abre **Task Tracker** → `•••` → **Connections** → agrega tu integración.
+3. GitHub → Settings → Secrets and variables → Actions → secreto **`NOTION_TOKEN`** con ese valor.
+4. Actions → *Sincronizar Notion* → **Run workflow** para probar.
