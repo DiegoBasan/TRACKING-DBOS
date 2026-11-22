@@ -56,3 +56,11 @@ match /tracking-dbos/{doc=**} {
 - Zona horaria: `America/Chihuahua`. Nada se repite el mismo día.
 
 > GitHub pausa los cron de repos públicos tras 60 días sin commits; si dejan de llegar, reactívalo en Actions.
+
+## Widget de iPhone (Scriptable)
+1. Instala **Scriptable** (App Store) → **+** → pega el contenido de [`widget/tracker-widget.js`](widget/tracker-widget.js) → nómbralo `Tracker`.
+2. Ejecútalo una vez dentro de Scriptable para ver la vista previa.
+3. En la pantalla de inicio: mantén presionado → **+** → Scriptable → tamaño **mediano** → edita el widget → Script: `Tracker`.
+
+Lee Firestore directo (API REST, solo lectura) y usa las mismas categorías de [`categorias.js`](categorias.js).
+Si no hay internet muestra lo último guardado. Tocarlo abre la app.

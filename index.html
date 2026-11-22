@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+<script src="categorias.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
 <script>
@@ -41,9 +42,10 @@ document.documentElement.dataset.theme=d?'dark':'light';})();
   color-scheme:dark;
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;transition:background .2s}
+html,body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;transition:background .2s}
 button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
 button{cursor:pointer;border:0;background:none;padding:0}
+input,textarea,[contenteditable]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .app{max-width:560px;margin:0 auto;padding:0 12px 130px}
 .noselect,[data-lp]{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -74,6 +76,7 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
 .mhead .nav{display:flex;gap:6px}
 .mhead .nav button{width:32px;height:32px;border-radius:50%;background:var(--soft);display:grid;place-items:center}
 .mhead .nav svg{width:17px;height:17px}
+.mhead .wrapb.on{background:var(--ink);color:var(--inv)}
 .mhead .today{padding:0 12px;width:auto!important;border-radius:20px!important;font-size:12px;font-weight:700}
 .cal{background:var(--soft);border-radius:20px;overflow:hidden}
 .dow{display:grid;grid-template-columns:repeat(7,1fr);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut);text-align:center;padding:9px 0 6px}
@@ -88,6 +91,8 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
 .bar.cr{border-top-right-radius:0;border-bottom-right-radius:0;margin-right:-2px}
 .bar .wm{position:absolute;right:3px;top:3px;width:11px;height:11px;opacity:.5;pointer-events:none}
 .bar .tx{position:relative}
+.cal.wrap .bar{white-space:normal;height:auto;min-height:17px;line-height:1.12;padding:2.5px 4px;text-overflow:clip;overflow-wrap:break-word;-webkit-hyphens:auto;hyphens:auto;align-self:stretch}
+.cal.wrap .bar .wm{top:3px}
 .more{z-index:2;font-size:9.5px;font-weight:700;color:var(--mut);text-align:center;align-self:center;pointer-events:none}
 
 /* Estados por categoría: pendiente = opaco, en curso = color lleno, completada = tachado y opaco */
@@ -148,6 +153,14 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
 .ts.ok .tt{color:var(--mut);text-decoration:line-through}
 .ts .td{font-size:11px;color:var(--mut);font-weight:600}
 
+/* Tracker interactivo en la lista */
+.tcs{padding:14px 2px 4px}
+.tcs .nd{cursor:pointer}
+.tcs .nd::before{content:'';position:absolute;inset:-12px}
+.tcs .nd:active{transform:scale(.85)!important}
+.tcs .lb{cursor:pointer}
+.tnext{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:6px;padding:9px;border-radius:13px;background:var(--soft);font-weight:700;font-size:12.5px;color:var(--ink2)}
+.tnext svg{width:15px;height:15px;color:var(--c)}
 /* Stepper (detalle) */
 .stp{position:relative;height:24px;margin:0 2px}
 .stp .ln{position:absolute;left:11px;right:11px;top:10px;height:4px;border-radius:4px;background:var(--soft2)}
@@ -339,6 +352,7 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
    ICONOS (trazo 24x24)
    ========================================================= */
 const ICONS={
+  wrap:'<path d="M3 6h18M3 12h14a3 3 0 0 1 0 6h-4"/><path d="m15 16-2 2 2 2M3 18h6"/>',
   /* UI */
   cal:'<rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/>',
   list:'<path d="M9 6h12M9 12h12M9 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/>',
@@ -468,83 +482,7 @@ const ICON_GROUPS=[
 /* =========================================================
    CATEGORÍAS + DETECCIÓN AUTOMÁTICA
    ========================================================= */
-const CATS={
-  urgente:  {n:'Urgente',        c:'#e5262f',i:'alert'},
-  elia:     {n:'Elia',           c:'#8b5cf6',i:'heart'},
-  emprende: {n:'Emprendimiento', c:'#ea5a2b',i:'store'},
-  trabajo:  {n:'Trabajo',        c:'#3b82f6',i:'briefcase'},
-  carro:    {n:'Carro',          c:'#6b7280',i:'car'},
-  salud:    {n:'Salud',          c:'#ec4899',i:'health'},
-  casa:     {n:'Casa',           c:'#8b5a3c',i:'home'},
-  compras:  {n:'Compras',        c:'#22a35a',i:'cart'},
-  cotidiano:{n:'Cotidiano',      c:'#f59e0b',i:'checklist'},
-  personal: {n:'Personal',       c:'#14b8a6',i:'user'},
-  general:  {n:'General',        c:'#7a7a7a',i:'circle'}
-};
-const CAT_ORDER=['urgente','elia','emprende','trabajo','carro','salud','casa','compras','personal','cotidiano'];
-/* "=palabra" = palabra exacta; el resto = palabra que empieza así */
-const CAT_KW={
-  urgente:['urgente','=urge','importante','=hoy','asap','prioridad','critico','=ya'],
-  elia:['elia','novia','aniversario','propuesta','zauber','viena','san valentin','=cita con elia'],
-  emprende:['chilakelia','chilaquil','cafe frio','cafefrio','cold brew','maquinita','peluche','garra','emprend','negocio','=venta','ventas','=menu','=qr','tarjetas de sellos','coffee','combi','barista','cafetera','lanzamiento','clientes','=ibiza','=puesto'],
-  trabajo:['jabil','john deere','=jd','trabajo','oficina','junta','reunion','plano','attachment','=sow','=a3','=moc','estacion','=linea','falla','kasalis','=elk','moose','gecko','scorpion','infurrow','reporte','auditoria','solidworks','=plc','fanuc','keyence','cognex','=ecn','fixtura','fixture','cotizacion','proveedor','presentacion','pallet','thermal','=pcba','=mes','acura'],
-  carro:['carro','coche','=auto','frenos','aceite','llanta','verificacion','gasolina','mecanico','=seat','afinacion','refrendo','placas','tenencia','autolavado','anticongelante','bujia','balatas','=liquido de frenos'],
-  salud:['salud','doctor','medico','dentista','diente','muela','gym','gimnasio','ejercicio','=correr','barba','corte de pelo','peluqueria','barberia','cabello','higiene','farmacia','medicina','vitamina','consulta','analisis','dieta','=bano','ducha','lentes','optometrista','terapia','=cita medica','crema','shampoo'],
-  casa:['carpinteria','melamina','mueble','=casa','cuarto','ordenar','=orden','limpiar','limpieza','closet','escritorio','cocina','jardin','pasto','pintar','reparar','arreglar','=cnc','herramienta','repisa','cajon','=foco','plomer','electric','recamara','=sala','barrer','trapear'],
-  compras:['compra','comprar','pagar','=pago','gasto','regalo','=super','supermercado','mercado','amazon','tarjeta','deposito','transferencia','factura','precio','tienda','pedido','=envio','flores','despensa','liverpool','costco','walmart','=sams','renta'],
-  personal:['personal','aprender','estudiar','=curso','=leer','libro','guitarra','=elp','proyecto','=app','programar','codigo','brazo','robot','=3d','impresion 3d','cortador','viaje','aleman','deutsch','idioma','alemania','hobby','pagina web','github','=cine','pelicula'],
-  cotidiano:['lavar','ropa','tender','basura','recoger','llamar','mandar','enviar','recordar','tramite','banco','regar','cocinar','planchar','=cita','pendiente','comida','cena']
-};
-const ICON_KW=[
-  ['alert',['urgente','=urge','asap','critico']],
-  ['fire',['importante','prioridad']],
-  ['heart',['elia','novia','aniversario','=amor']],
-  ['ring',['propuesta','anillo','zauber','boda']],
-  ['gift',['regalo','regalar','cumple']],
-  ['flower',['flores','=flor','ramo','tulipan','=rosas']],
-  ['film',['=cine','pelicula','=serie']],
-  ['party',['fiesta','evento','celebra','posada']],
-  ['claw',['maquinita','peluche','garra']],
-  ['nachos',['chilakelia','chilaquil','nacho','totopo']],
-  ['cup',['cafe frio','cold brew','cafefrio']],
-  ['coffee',['=cafe','coffee','barista','cafetera','espresso']],
-  ['rocket',['lanzamiento','lanzar']],
-  ['card',['tarjeta','credito','=tdc','=msi']],
-  ['bill',['pagar','=pago','billete','efectivo','dinero','deposito','transferencia','gasto','renta','prestamo']],
-  ['cart',['compra','comprar','=super','tienda','despensa','amazon','pedido','mercado']],
-  ['saw',['carpinteria','melamina','madera','=cnc']],
-  ['hammer',['mueble','repisa','martillo','armar','=armado']],
-  ['broom',['ordenar','limpiar','limpieza','barrer','=orden','trapear']],
-  ['home',['=casa','cuarto','closet','escritorio','cocina','recamara']],
-  ['wrench',['frenos','aceite','mecanico','afinacion','reparar','arreglar','=taller','balatas']],
-  ['fuel',['gasolina']],
-  ['tire',['llanta']],
-  ['car',['carro','coche','=auto','verificacion','placas','refrendo','tenencia','=seat']],
-  ['tooth',['dentista','diente','muela','brackets']],
-  ['beard',['barba','barberia']],
-  ['scissors',['corte de pelo','cortar pelo','peluqueria','cabello']],
-  ['pill',['medicina','pastilla','farmacia','vitamina']],
-  ['dumbbell',['=gym','gimnasio','ejercicio','pesas','entrenar']],
-  ['shirt',['ropa','tender','planchar']],
-  ['drop',['higiene','=bano','ducha','lavar']],
-  ['health',['salud','doctor','medico','consulta','analisis','hospital','terapia']],
-  ['food',['comida','cocinar','cena','desayuno','almuerzo','restaurante','receta']],
-  ['robot',['brazo','robot','fanuc','=plc']],
-  ['cube',['=3d','=stl','=step','solidworks','modelo','=cad','fixtura','fixture']],
-  ['printer',['imprimir','impresion']],
-  ['doc',['plano','documento','=sow','=a3','=moc','reporte','factura','contrato','formato','attachment','firmar','tramite']],
-  ['users',['junta','reunion','meeting']],
-  ['phone',['llamar','llamada','telefono']],
-  ['plane',['viaje','vuelo','aeropuerto','alemania']],
-  ['book',['estudiar','=curso','=leer','libro','aleman','idioma','aprender']],
-  ['music',['guitarra','musica','=elp','cancion']],
-  ['code',['programar','codigo','=app','pagina web','github','script']],
-  ['briefcase',['jabil','john deere','=jd','trabajo','oficina']],
-  ['bin',['basura']],
-  ['leaf',['regar','planta','jardin','pasto']],
-  ['bulb',['=idea','=foco']],
-  ['mail',['correo','=mail','email']]
-];
+const {CATS,CAT_ORDER,CAT_KW,ICON_KW}=window.CATDATA; // ver categorias.js
 const norm=s=>' '+String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9!]+/g,' ')+' ';
 const mk=kw=>kw[0]==='='?new RegExp(' '+kw.slice(1).replace(/ /g,' ')+' '):new RegExp(' '+kw);
 const CAT_RX=Object.fromEntries(Object.entries(CAT_KW).map(([k,v])=>[k,v.map(mk)]));
@@ -596,7 +534,7 @@ const FIELDS=['id','titulo','inicio','fin','estado','tipo','notas','categoria','
    ========================================================= */
 let ACTS=[],STAGES=[];
 const S={view:'cal',month:new Date(P(TODAY).getFullYear(),P(TODAY).getMonth(),1),sel:TODAY,filter:'all',q:''};
-try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list')S.view=v}catch(e){}
+try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list')S.view=v;S.wrap=localStorage.getItem('tracker-wrap')==='1'}catch(e){}
 
 function ingest(docs){
   ACTS=docs.filter(a=>a&&a.id&&a.inicio).map(a=>{const o={};FIELDS.forEach(k=>o[k]=a[k]??'');o.tipo=o.tipo||'simple';o.estado=o.estado||'Pendiente';o.fin=o.fin||o.inicio;return o});
@@ -697,7 +635,8 @@ function render(){
 /* =========================================================
    STEPPER (detalle)
    ========================================================= */
-function stepper(a){
+function stepper(a,inter){
+  const T=i=>inter?` data-tg="${esc(a.id)}" data-i="${i}"`:'';
   const{st,n}=prog(a);if(!n)return'';
   let last=-1;st.forEach((s,i)=>{if(s.completada)last=i});
   const cur=st.findIndex(s=>!s.completada);
@@ -706,7 +645,7 @@ function stepper(a){
   let nodes='',labels='';
   st.forEach((s,i)=>{
     const p=pos(i),cls=s.completada?'ok':i===cur?'cur':'';
-    nodes+=`<div class="nd ${cls}" style="left:${p}%;transform:translateX(-${p}%)">${s.completada?ic('check'):''}</div>`;
+    nodes+=`<div class="nd ${cls}"${T(i)} style="left:${p}%;transform:translateX(-${p}%)">${s.completada?ic('check'):''}</div>`;
   });
   const set=new Set(n<=3?st.map((_,i)=>i):[0,n-1,cur<0?n-1:cur,last].filter(i=>i>=0));
   const idx=[...set].sort((a,b)=>a-b);
@@ -718,7 +657,7 @@ function stepper(a){
     else if(p===1) place=`right:0;width:calc(13px + (100% - 26px) * ${1-lo} - 4px);text-align:right`;
     else{const h=Math.min(p-lo,hi-p);place=`left:calc(13px + (100% - 26px) * ${p-h} + 2px);width:calc((100% - 26px) * ${2*h} - 4px);text-align:center`;}
     const sub=s.completada&&s.completadaEn?'✓ '+sh(s.completadaEn):sh(s.fecha);
-    labels+=`<div class="lb ${s.completada||i===cur?'':'pend'}" style="${place}">${esc(s.titulo)}<small>${sub}</small></div>`;
+    labels+=`<div class="lb ${s.completada||i===cur?'':'pend'}"${T(i)} style="${place}">${esc(s.titulo)}<small>${sub}</small></div>`;
   });
   return`<div class="stp"><div class="ln"><i style="width:${fill}%"></i></div>${nodes}</div><div class="stl">${labels}</div>`;
 }
@@ -728,14 +667,14 @@ function stepper(a){
    ========================================================= */
 function calView(){
   const m=S.month,first=new Date(m.getFullYear(),m.getMonth(),1),lastD=new Date(m.getFullYear(),m.getMonth()+1,0);
-  const start=addD(first,-((first.getDay()+6)%7));
-  const end=addD(lastD,(7-lastD.getDay())%7);
+  const start=addD(first,-first.getDay());
+  const end=addD(lastD,6-lastD.getDay());
   let weeks='';
   for(let ws=start;ws<=end;ws=addD(ws,7)){
     const wsS=Y(ws),weS=Y(addD(ws,6));
     const ev=ACTS.filter(a=>a.inicio&&a.inicio<=weS&&a.fin>=wsS)
       .sort((a,b)=>a.inicio.localeCompare(b.inicio)||dd(b.inicio,b.fin)-dd(a.inicio,a.fin)||a.titulo.localeCompare(b.titulo));
-    const lanes=[],segs=[],MAXL=4,hidden=Array(7).fill(0);
+    const lanes=[],segs=[],MAXL=S.wrap?10:4,hidden=Array(7).fill(0);
     ev.forEach(a=>{
       const c0=Math.max(0,dd(wsS,a.inicio)),c1=Math.min(6,dd(wsS,a.fin));
       let l=lanes.findIndex(e=>e<c0);if(l<0){l=lanes.length;lanes.push(-1)}lanes[l]=c1;
@@ -743,7 +682,7 @@ function calView(){
       else for(let c=c0;c<=c1;c++)hidden[c]++;
     });
     const used=Math.min(lanes.length,MAXL),hasMore=hidden.some(Boolean),rows=Math.max(2,used+(hasMore?1:0));
-    let h=`<div class="week" style="grid-template-rows:30px repeat(${rows},17px) 5px">`;
+    let h=`<div class="week" style="grid-template-rows:30px repeat(${rows},${S.wrap?'minmax(17px,auto)':'17px'}) 5px">`;
     for(let i=0;i<7;i++){
       const d=addD(ws,i),ds=Y(d);
       h+=`<button class="day ${d.getMonth()!==m.getMonth()?'out':''} ${ds===TODAY?'tod':''} ${ds===S.sel?'sel':''}" style="grid-column:${i+1}" data-day="${ds}"><span class="n">${d.getDate()}</span></button>`;
@@ -757,8 +696,8 @@ function calView(){
   }
   return`<div class="card">
     <div class="mhead"><b>${MES[m.getMonth()]} ${m.getFullYear()}</b>
-      <div class="nav"><button class="today" data-today>Hoy</button><button data-mv="-1">${ic('left')}</button><button data-mv="1">${ic('right')}</button></div></div>
-    <div class="cal"><div class="dow"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>${weeks}</div>
+      <div class="nav"><button class="wrapb ${S.wrap?'on':''}" data-wrap title="Texto completo">${ic('wrap')}</button><button class="today" data-today>Hoy</button><button data-mv="-1">${ic('left')}</button><button data-mv="1">${ic('right')}</button></div></div>
+    <div class="cal ${S.wrap?'wrap':''}"><div class="dow"><span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span></div>${weeks}</div>
   </div>${dayPanel()}`;
 }
 function dayPanel(){
@@ -805,12 +744,12 @@ function listView(){
   ${!L.length?'<div class="card empty">Sin resultados</div>':''}`;
 }
 function trackCard(a){
-  const p=prog(a),s=status(a);
+  const p=prog(a),s=status(a),nx=p.st.findIndex(x=>!x.completada);
   return`<div class="tc" style="--c:${colorOf(a)}">
     <div class="tch" data-lp="${esc(a.id)}"><div class="ico ${stCls(s)}">${ic(iconOf(a))}</div>
-      <div class="t"><b>${esc(a.titulo)}</b><small>${p.d}/${p.n} · entrega ${sh(a.fin)}</small></div>${pill(a)}</div>
-    <div class="tbar"><i style="width:${p.pct}%"></i></div>
-    ${p.st.map((x,i)=>`<button class="ts ${x.completada?'ok':''}" data-tg="${esc(a.id)}" data-i="${i}"><span class="ck">${ic('check')}</span><span class="tt">${esc(x.titulo)}</span><span class="td">${x.completada&&x.completadaEn?'✓ '+sh(x.completadaEn):sh(x.fecha)}</span></button>`).join('')}
+      <div class="t"><b>${esc(a.titulo)}</b><small>${p.d}/${p.n} avances · entrega ${sh(a.fin)}</small></div>${pill(a)}</div>
+    <div class="tcs">${stepper(a,true)}</div>
+    ${nx>=0?`<button class="tnext" data-tg="${esc(a.id)}" data-i="${nx}">${ic('route')} Avanzar: ${esc(p.st[nx].titulo)}</button>`:''}
   </div>`;
 }
 
@@ -823,11 +762,12 @@ function bindView(){
   v.querySelectorAll('[data-day]').forEach(e=>e.onclick=()=>{S.sel=e.dataset.day;const d=P(S.sel);if(d.getMonth()!==S.month.getMonth())S.month=new Date(d.getFullYear(),d.getMonth(),1);render()});
   v.querySelectorAll('[data-mv]').forEach(e=>e.onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+Number(e.dataset.mv),1);render()});
   const t=v.querySelector('[data-today]');if(t)t.onclick=()=>{S.sel=TODAY;const d=P(TODAY);S.month=new Date(d.getFullYear(),d.getMonth(),1);render()};
+  const wb=v.querySelector('[data-wrap]');if(wb)wb.onclick=()=>{S.wrap=!S.wrap;try{localStorage.setItem('tracker-wrap',S.wrap?'1':'0')}catch(e){}render();toast(S.wrap?'Texto completo':'Texto en una línea')};
   const ad=v.querySelector('[data-addday]');if(ad)ad.onclick=()=>openForm(null,S.sel);
   v.querySelectorAll('[data-f]').forEach(e=>e.onclick=()=>{S.filter=S.filter===e.dataset.f&&e.dataset.f!=='all'?'all':e.dataset.f;render()});
   const cy=v.querySelector('[data-cyc]');if(cy)cy.onclick=()=>{const k=['all','prog','pend','trk','late','done'];S.filter=k[(k.indexOf(S.filter)+1)%k.length];render()};
   const q=$('q');if(q)q.oninput=()=>{S.q=q.value;const pos=q.selectionStart;render();const n=$('q');n.focus();n.setSelectionRange(pos,pos)};
-  v.querySelectorAll('[data-tg]').forEach(b=>b.onclick=e=>{e.stopPropagation();b.classList.toggle('ok');setTimeout(()=>toggleStage(b.dataset.tg,+b.dataset.i),140)});
+  v.querySelectorAll('[data-tg]').forEach(b=>b.onclick=e=>{e.stopPropagation();navigator.vibrate?.(8);if(b.classList.contains('nd'))b.classList.toggle('ok');setTimeout(()=>toggleStage(b.dataset.tg,+b.dataset.i),120)});
 }
 
 /* =========================================================
@@ -1030,10 +970,10 @@ function wheel(el,idx,onChange){
 function miniCal(el,pk){
   const draw=()=>{
     const m=pk.m,first=new Date(m.getFullYear(),m.getMonth(),1),lastD=new Date(m.getFullYear(),m.getMonth()+1,0);
-    const start=addD(first,-((first.getDay()+6)%7)),end=addD(lastD,(7-lastD.getDay())%7);
+    const start=addD(first,-first.getDay()),end=addD(lastD,6-lastD.getDay());
     let cells='';for(let d=start;d<=end;d=addD(d,1)){const ds=Y(d);cells+=`<div class="mcd ${d.getMonth()!==m.getMonth()?'out':''} ${ds===TODAY?'tod':''}" data-d="${ds}"><span>${d.getDate()}</span></div>`}
     el.innerHTML=`<div class="mch"><button data-mm="-1">${ic('left')}</button><b>${MES[m.getMonth()]} ${m.getFullYear()}</b><button data-mm="1">${ic('right')}</button></div>
-      <div class="mcw"><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span><span>D</span></div>
+      <div class="mcw"><span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span></div>
       <div class="mcg">${cells}</div><div class="mcs" id="mcs"></div>`;
     el.querySelectorAll('[data-mm]').forEach(b=>b.onclick=()=>{pk.m=new Date(pk.m.getFullYear(),pk.m.getMonth()+Number(b.dataset.mm),1);draw()});
     bind();paint();
@@ -1102,6 +1042,9 @@ function openSettings(){
     <div class="shead"><button class="rnd" data-close>${ic('x')}</button><h3>Ajustes</h3><span style="width:40px"></span></div>
     <span class="flbl">Apariencia</span>
     <div class="seg">${[['auto','auto','Auto'],['light','sun','Claro'],['dark','moon','Oscuro']].map(([k,i,t])=>`<button data-th="${k}" class="${THEME===k?'on':''}">${ic(i)} ${t}</button>`).join('')}</div>
+    <div class="dcard" style="margin-bottom:12px"><div class="h">${ic('cal')} Calendario</div><div class="in" style="padding:4px 14px">
+      <div class="tg"><div>Texto completo en las tareas<small>El nombre continúa en otra línea (como “ajustar texto” en Excel)</small></div>
+        <label class="sw"><input type="checkbox" id="pW" ${S.wrap?'checked':''}><i></i></label></div></div></div>
     <div class="dcard" style="margin-bottom:12px"><div class="h">${ic('bell')} Notificaciones</div><div class="in" style="padding:4px 14px">
       <div class="tg" style="display:block;line-height:1.45;color:var(--ink2)">${estado}</div>
       ${on?`
@@ -1129,6 +1072,7 @@ function openSettings(){
     pb.disabled=false;pb.style.opacity=1};
   const tb=s.querySelector('[data-test]');
   if(tb)tb.onclick=async()=>{try{const r=await getReg();await r.showNotification('Tracker',{body:'Así se verán tus avisos ✓',icon:'icons/icon-192.png',badge:'icons/icon-192.png',tag:'prueba'})}catch(e){toast('Error: '+(e.message||e))}};
+  const pW=$('pW');if(pW)pW.onchange=()=>{S.wrap=pW.checked;try{localStorage.setItem('tracker-wrap',S.wrap?'1':'0')}catch(e){}render()};
   const pH=$('pH');if(pH)pH.onchange=()=>setPref('horaResumen',+pH.value);
   const pR=$('pR');if(pR)pR.onchange=()=>setPref('resumen',pR.checked);
   const pE=$('pE');if(pE)pE.onchange=()=>setPref('recordatorios',pE.checked);
