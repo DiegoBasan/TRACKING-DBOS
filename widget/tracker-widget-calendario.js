@@ -6,9 +6,10 @@
    Tracker · Widget CALENDARIO (mediano o grande) para Scriptable
    Estilo de la app: celdas redondeadas y barras de colores que cruzan los días.
    Parámetro del widget (opcional, separado por comas):
-     semanas: vacío = 4 semanas desde la actual · "2"…"6" = esas semanas · "mes" = mes completo
+     semanas: vacío = 3 semanas desde la actual · "1"…"6" = esas semanas · "mes" = mes completo
      tema:    vacío = transparente (Liquid Glass) · "oscuro" · "claro"
-   Ejemplos:  (vacío)   ·   3   ·   mes,oscuro
+     titulo:  muestra el encabezado del mes en el mediano (quita espacio a las tareas)
+   Ejemplos:  (vacío)   ·   2   ·   mes,oscuro,titulo
    ========================================================= */
 const APP_URL = 'https://diegobasan.github.io/TRACKING-DBOS/';
 const API_KEY = 'AIzaSyDfWuyJFV2vV8yQAdngrorTMZWn9p0DIqI';
@@ -117,7 +118,7 @@ async function main() {
   const tokens = String(args.widgetParameter || '').toLowerCase().split(/[\s,]+/).filter(Boolean);
   const themeName = tokens.includes('oscuro') ? 'oscuro' : tokens.includes('claro') ? 'claro' : 'transparente';
   const T = THEMES[themeName];
-  const weeksParam = tokens.find(t => /^[2-6]$/.test(t)) || (tokens.includes('mes') ? 'mes' : '4');
+  const weeksParam = tokens.find(t => /^[1-6]$/.test(t)) || (tokens.includes('mes') ? 'mes' : '3');
 
   const catRes = await getText(CAT_URL, 'cats.js');
   CAT = JSON.parse(catRes.t.slice(catRes.t.indexOf('{'), catRes.t.lastIndexOf('}') + 1));
@@ -138,16 +139,20 @@ async function main() {
   // Medidas
   const [WW, WH] = widgetSize(fam);
   const big = fam === 'large';
-  const PAD = big ? 12 : 8, GAP = big ? 3.5 : 2;
-  const HEAD = big ? 20 : 12, DOW = big ? 14 : 8.5;
+  const WR = 23;                                  // radio de las esquinas del widget de iOS
+  const PAD = big ? 12 : 9, GAP = big ? 3.5 : 2;
+  const showHead = big || tokens.includes('titulo');
+  const HEAD = showHead ? (big ? 20 : 12) : 0, DOW = big ? 14 : 8.5;
   const gridW = WW - PAD * 2, gridH = WH - PAD * 2 - HEAD - DOW;
   const tileW = (gridW - GAP * 6) / 7;
   const weekH = (gridH - GAP * (nW - 1)) / nW;
-  const NUM = big ? 16 : (weekH > 40 ? 12 : 9.5);
-  const laneH = big ? 12.5 : (weekH > 40 ? 10.5 : 8.8);
-  const FS = big ? 8.5 : (weekH > 40 ? 7.2 : 6.3);
+  const NUM = big ? 16 : 9;
+  const laneH = big ? 12 : (weekH > 60 ? 9.5 : 8);
+  const FS = big ? 8.3 : (weekH > 60 ? 7 : 6);
   const NUMFS = big ? 10.5 : 7;
-  const maxLanes = Math.max(1, Math.floor((weekH - NUM - 1) / laneH));
+  const maxLanes = Math.max(1, Math.floor((weekH - NUM - 1.5) / laneH));
+  const RT = big ? 12 : 8;                        // radio de las celdas
+  const RO = Math.max(RT, WR - PAD);              // radio de las 4 celdas de las esquinas (concéntrico al widget)
 
   const ctx = new DrawContext();
   ctx.size = new Size(WW, WH);
@@ -155,30 +160,43 @@ async function main() {
   ctx.opaque = !!T.bg;
   const col = (c, a) => Array.isArray(c) ? new Color(c[0], c[1] * (a ?? 1)) : new Color(c, a ?? 1);
   const fill = (c, a) => ctx.setFillColor(col(c, a));
-  // mezcla sólida de dos colores hex (evita transparencias sobre los huecos)
   const mix = (c1, c2, t) => { const h = x => [1, 3, 5].map(i => parseInt(x.replace('#', '').padEnd(6, '0').slice(i - 1, i + 1), 16));
     const a = h(c1), b = h(c2); return '#' + a.map((v, i) => Math.round(v * t + b[i] * (1 - t)).toString(16).padStart(2, '0')).join('') };
   const rr = (x, y, w, h, r) => { const p = new Path(); p.addRoundedRect(new Rect(x, y, w, h), r, r); return p };
+  // rectángulo con radio distinto por esquina [arriba-izq, arriba-der, abajo-der, abajo-izq]
+  const rrc = (x, y, w, h, [tl, tr, br, bl]) => {
+    const p = new Path(), k = 0.5523; // aproximación de cuarto de círculo con curvas Bézier
+    p.move(new Point(x + tl, y));
+    p.addLine(new Point(x + w - tr, y)); p.addCurve(new Point(x + w, y + tr), new Point(x + w - tr + tr * k, y), new Point(x + w, y + tr - tr * k));
+    p.addLine(new Point(x + w, y + h - br)); p.addCurve(new Point(x + w - br, y + h), new Point(x + w, y + h - br + br * k), new Point(x + w - br + br * k, y + h));
+    p.addLine(new Point(x + bl, y + h)); p.addCurve(new Point(x, y + h - bl), new Point(x + bl - bl * k, y + h), new Point(x, y + h - bl + bl * k));
+    p.addLine(new Point(x, y + tl)); p.addCurve(new Point(x + tl, y), new Point(x, y + tl - tl * k), new Point(x + tl - tl * k, y));
+    p.closeSubpath(); return p;
+  };
+  // cuánto hay que meter hacia adentro algo que está a "dy" del borde en una esquina de radio R
+  const cornerInset = (R, dy) => dy >= R ? 0 : R - Math.sqrt(Math.max(0, R * R - (R - dy) * (R - dy)));
   const text = (s, x, y, w, h, fs, color, opts = {}) => {
     ctx.setFont(opts.mono ? Font.mediumMonospacedSystemFont(fs) : opts.weight === 'heavy' ? Font.heavySystemFont(fs) : opts.weight === 'semi' ? Font.semiboldSystemFont(fs) : Font.boldSystemFont(fs));
     ctx.setTextColor(col(color));
     if (opts.align === 'center') ctx.setTextAlignedCenter(); else if (opts.align === 'right') ctx.setTextAlignedRight(); else ctx.setTextAlignedLeft();
     ctx.drawTextInRect(s, new Rect(x, y, w, h));
   };
-  // recorta el texto a una línea (aprox. por ancho promedio de carácter)
   const fit = (s, w, fs) => { const n = Math.max(1, Math.floor(w / (fs * 0.53))); return s.length > n ? s.slice(0, Math.max(1, n - 1)).trimEnd() + '…' : s };
 
-  // Fondo
   if (T.bg) { fill(T.bg); ctx.fillRect(new Rect(0, 0, WW, WH)) }
 
-  // Encabezado
+  // Encabezado (solo en grande, o con el parámetro "titulo")
   const cap = t => t.replace(/^./, c => c.toUpperCase());
-  const mesTxt = weeksParam === 'mes' || start.getMonth() === end.getMonth()
-    ? cap(MES[(weeksParam === 'mes' ? now : start).getMonth()]) + ' ' + now.getFullYear()
-    : cap(MES3[start.getMonth()]) + ' – ' + cap(MES3[end.getMonth()]) + ' ' + end.getFullYear();
-  text(mesTxt, PAD + 2, PAD - 1.5, gridW / 2, HEAD, big ? 14 : 9.5, T.ink, { weight: 'heavy' });
-  const activas = acts.filter(a => a.inicio <= TODAY && a.fin >= TODAY && status(a) !== 'Completada').length;
-  text(fsRes.offline ? 'sin conexión' : `Hoy ${DIA3[now.getDay()]} ${now.getDate()} · ${activas} activas`, PAD + gridW / 2, PAD + (big ? 2 : 1), gridW / 2 - 2, HEAD, big ? 9.5 : 7, fsRes.offline ? T.red : T.mut, { weight: 'semi', align: 'right' });
+  if (showHead) {
+    const mesTxt = weeksParam === 'mes' || start.getMonth() === end.getMonth()
+      ? cap(MES[(weeksParam === 'mes' ? now : start).getMonth()]) + ' ' + now.getFullYear()
+      : cap(MES3[start.getMonth()]) + ' – ' + cap(MES3[end.getMonth()]) + ' ' + end.getFullYear();
+    text(mesTxt, PAD + 6, PAD - 1.5, gridW / 2, HEAD, big ? 14 : 9.5, T.ink, { weight: 'heavy' });
+    const activas = acts.filter(a => a.inicio <= TODAY && a.fin >= TODAY && status(a) !== 'Completada').length;
+    text(fsRes.offline ? 'sin conexión' : `Hoy ${DIA3[now.getDay()]} ${now.getDate()} · ${activas} activas`, PAD + gridW / 2, PAD + (big ? 2 : 1), gridW / 2 - 8, HEAD, big ? 9.5 : 7, fsRes.offline ? T.red : T.mut, { weight: 'semi', align: 'right' });
+  } else if (fsRes.offline) {
+    text('sin conexión', PAD, PAD - 1, gridW - 10, DOW, 6.5, T.red, { weight: 'semi', align: 'right' });
+  }
 
   // Días de la semana
   const top0 = PAD + HEAD;
@@ -187,27 +205,32 @@ async function main() {
   const gy = top0 + DOW;
   for (let k = 0, ws = start; k < nW; k++, ws = addD(ws, 7)) {
     const y = gy + k * (weekH + GAP), wsS = Y(ws), weS = Y(addD(ws, 6));
+    const topRow = k === 0 && !showHead, botRow = k === nW - 1;   // filas que tocan las esquinas del widget
 
     // Celdas
     for (let i = 0; i < 7; i++) {
       const d = addD(ws, i), ds = Y(d), x = PAD + i * (tileW + GAP);
       const inMonth = weeksParam !== 'mes' || d.getMonth() === now.getMonth();
-      fill(inMonth ? T.tile : T.tileOut); ctx.addPath(rr(x, y, tileW, weekH, big ? 8 : 5)); ctx.fillPath();
-      const label = (weeksParam !== 'mes' && d.getDate() === 1 ? MES3[d.getMonth()] + ' ' : '') + d.getDate();
+      const radii = [
+        topRow && i === 0 ? RO : RT, topRow && i === 6 ? RO : RT,
+        botRow && i === 6 ? RO : RT, botRow && i === 0 ? RO : RT];
+      fill(inMonth ? T.tile : T.tileOut); ctx.addPath(rrc(x, y, tileW, weekH, radii)); ctx.fillPath();
+      const label = ((weeksParam !== 'mes' && (d.getDate() === 1 || (k === 0 && i === 0))) && ds !== TODAY ? MES3[d.getMonth()] + ' ' : '') + d.getDate();
+      const nx = x + (big ? 8 : 5) + (topRow && i === 0 ? 2.5 : 0);
       if (ds === TODAY) {
-        const cs = NUMFS + (big ? 8 : 5.5);
+        const cs = NUMFS + (big ? 8 : 5.5), cx = nx - (big ? 3 : 2), cy = y + (big ? 3 : 1.5);
         if (T.glass) {
-          ctx.setStrokeColor(col(T.ink)); ctx.setLineWidth(big ? 1.6 : 1.2);
-          ctx.strokeEllipse(new Rect(x + (big ? 5 : 3), y + (big ? 3 : 2), cs, cs));
-          text(label, x + (big ? 5 : 3), y + (big ? 3 : 2) + (cs - NUMFS * 1.25) / 2, cs, cs, NUMFS, T.ink, { align: 'center', weight: 'heavy' });
+          ctx.setStrokeColor(col(T.ink)); ctx.setLineWidth(big ? 1.6 : 1.1);
+          ctx.strokeEllipse(new Rect(cx, cy, cs, cs));
+          text(label, cx, cy + (cs - NUMFS * 1.25) / 2, cs, cs, NUMFS, T.ink, { align: 'center', weight: 'heavy' });
         } else {
-          fill(T.ink); ctx.fillEllipse(new Rect(x + (big ? 5 : 3), y + (big ? 3 : 2), cs, cs));
-          text(label, x + (big ? 5 : 3), y + (big ? 3 : 2) + (cs - NUMFS * 1.25) / 2, cs, cs, NUMFS, T.inv, { align: 'center', weight: 'heavy' });
+          fill(T.ink); ctx.fillEllipse(new Rect(cx, cy, cs, cs));
+          text(label, cx, cy + (cs - NUMFS * 1.25) / 2, cs, cs, NUMFS, T.inv, { align: 'center', weight: 'heavy' });
         }
-        ctx.setStrokeColor(col(T.ink)); ctx.setLineWidth(big ? 1.6 : 1.2);
-        ctx.addPath(rr(x + 0.6, y + 0.6, tileW - 1.2, weekH - 1.2, big ? 8 : 5)); ctx.strokePath();
+        ctx.setStrokeColor(col(T.ink)); ctx.setLineWidth(big ? 1.6 : 1.1);
+        ctx.addPath(rrc(x + 0.55, y + 0.55, tileW - 1.1, weekH - 1.1, radii.map(r => Math.max(0, r - 0.55)))); ctx.strokePath();
       } else {
-        text(label, x + (big ? 8 : 5), y + (big ? 4 : 2.5), tileW, NUM, NUMFS, inMonth ? T.ink : T.out, { weight: 'semi' });
+        text(label, nx, y + (big ? 4 : 2), tileW, NUM, NUMFS, inMonth ? T.ink : T.out, { weight: 'semi' });
       }
     }
 
@@ -224,26 +247,28 @@ async function main() {
     lanes.slice(show).forEach(L => L.segs.forEach(s => { for (let c = s.c0; c <= s.c1; c++) hidden[c]++ }));
 
     lanes.slice(0, show).forEach((L, li) => {
-      const by = y + NUM + li * laneH + (big ? 2 : 1);
+      const by = y + NUM + li * laneH + (big ? 2 : 1.5);
+      const bh = laneH - (big ? 2.2 : 1.6), r = big ? 4 : 2.5;
       L.segs.forEach(({ a, c0, c1, cl, cr }) => {
         const s = status(a), c = CAT.CATS[catOf(a)].c;
-        const x0 = PAD + c0 * (tileW + GAP) + (cl ? -GAP / 2 : 1.5);
-        const x1 = PAD + c1 * (tileW + GAP) + tileW + (cr ? GAP / 2 : -1.5);
-        const bh = laneH - (big ? 2.5 : 1.8), r = big ? 4 : 2.5;
-        if (T.glass) fill(c, s === 'En curso' ? 0.78 : s === 'Completada' ? 0.16 : 0.34);
+        let x0 = PAD + c0 * (tileW + GAP) + (cl ? -GAP / 2 : 1.5);
+        let x1 = PAD + c1 * (tileW + GAP) + tileW + (cr ? GAP / 2 : -1.5);
+        // respetar la curva de las esquinas del widget
+        const dTop = by - y, dBot = y + weekH - (by + bh);
+        if (c0 === 0) { if (topRow) x0 += cornerInset(RO, dTop); if (botRow) x0 += cornerInset(RO, dBot) }
+        if (c1 === 6) { if (topRow) x1 -= cornerInset(RO, dTop); if (botRow) x1 -= cornerInset(RO, dBot) }
+        if (T.glass) fill(c, s === 'En curso' ? 0.8 : s === 'Completada' ? 0.16 : 0.36);
         else fill(s === 'En curso' ? c : mix(c, T.tile, s === 'Completada' ? 0.14 : 0.3));
         ctx.addPath(rr(x0, by, x1 - x0, bh, r)); ctx.fillPath();
         const tc = s === 'En curso' ? '#ffffff' : s === 'Completada' ? T.mut : T.glass ? mix(c, '#ffffff', 0.45) : c;
-        const padL = big ? 5 : 3, ty = by + (bh - FS * 1.22) / 2;
+        const padL = big ? 5 : 2.5, ty = by + (bh - FS * 1.22) / 2;
         const label = fit(a.titulo || '', x1 - x0 - padL * 2, FS);
         text(label, x0 + padL, ty, x1 - x0 - padL, bh, FS, tc);
-        if (s === 'Completada') { // tachado
-          fill(T.mut, 0.9); ctx.fillRect(new Rect(x0 + padL, by + bh / 2, Math.min(x1 - x0 - padL * 2, label.length * FS * 0.52), 0.7));
-        }
+        if (s === 'Completada') { fill(T.mut, 0.9); ctx.fillRect(new Rect(x0 + padL, by + bh / 2, Math.min(x1 - x0 - padL * 2, label.length * FS * 0.52), 0.6)) }
       });
     });
     // "+n" en la esquina de la celda cuando no caben
-    hidden.forEach((n, c) => { if (n) text('+' + n, PAD + c * (tileW + GAP), y + (big ? 4 : 2.5), tileW - (big ? 7 : 4), NUM, NUMFS * 0.85, T.mut, { align: 'right' }) });
+    hidden.forEach((n, c) => { if (n) text('+' + n, PAD + c * (tileW + GAP), y + (big ? 4 : 2), tileW - (big ? 7 : 4) - (topRow && c === 6 ? 3 : 0), NUM, NUMFS * 0.85, T.mut, { align: 'right' }) });
   }
 
   const w = new ListWidget();
