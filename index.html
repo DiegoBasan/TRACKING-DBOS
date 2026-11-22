@@ -312,6 +312,50 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
 .lpt{font-size:11px;font-weight:700;color:var(--mut);padding:6px 12px 4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lpov{position:fixed;inset:0;z-index:84;background:rgba(0,0,0,.12)}
 
+/* ================= LAPTOP / ESCRITORIO ================= */
+:root{--numH:30px;--laneH:17px}
+@media (min-width:900px){
+  :root{--numH:38px;--laneH:22px}
+  html,body{font-size:15px}
+  .app{max-width:none;padding:0 28px 120px}
+  header{padding:18px 6px 14px}
+  header h1{font-size:28px}
+  .calwrap{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:18px;align-items:start}
+  .calwrap>.card{margin:0}
+  .calwrap .dp{position:sticky;top:84px;max-height:calc(100vh - 110px);overflow-y:auto}
+  .card{padding:20px;border-radius:30px}
+  .mhead b{font-size:22px}
+  .mhead .nav button{width:38px;height:38px}
+  .mhead .today{font-size:13px}
+  .cal{border-radius:22px}
+  .dow{font-size:12px;padding:12px 0 8px}
+  .week{column-gap:4px;row-gap:3px;padding:0 4px 4px}
+  .day{min-height:120px;font-size:15px;padding-top:8px;border-radius:14px;justify-content:flex-start;padding-left:10px}
+  .day .n{width:28px;height:28px}
+  .day:hover{background:color-mix(in srgb,var(--card) 92%,var(--ink))}
+  .bar{font-size:12px;height:21px;line-height:21px;padding:0 8px;border-radius:7px;margin:0 2px}
+  .bar.cl{margin-left:-4px}.bar.cr{margin-right:-4px}
+  .bar .wm{width:14px;height:14px;top:3.5px;right:6px}
+  .bar:hover{filter:brightness(1.06) saturate(1.1)}
+  .cal.wrap .bar{padding:3px 8px;line-height:1.2}
+  .more{font-size:11px}
+  .row:hover{background:var(--soft);border-radius:14px}
+  .row{padding:11px 8px}
+  /* Lista en columnas */
+  .listwrap{max-width:1400px;margin:0 auto}
+  .tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:12px}
+  .tgrid .tc{margin:0}
+  .scard.cols{column-count:2;column-gap:28px;padding:6px 16px}
+  .scard.cols .row{break-inside:avoid}
+  .search{max-width:560px}
+  /* Dock centrado */
+  .dock{justify-content:center;gap:14px;max-width:none}
+  /* Sheet como ventana centrada */
+  .sheet{top:50%;bottom:auto;width:560px;max-height:88vh;border-radius:30px;padding:12px 20px 24px;opacity:0;pointer-events:none;transform:translate(-50%,-46%) scale(.97);transition:transform .25s cubic-bezier(.2,.8,.2,1),opacity .2s}
+  .sheet.show{opacity:1;pointer-events:auto;transform:translate(-50%,-50%) scale(1)}
+  .grab{display:none}
+}
+@media (min-width:1500px){.calwrap{grid-template-columns:minmax(0,1fr) 400px}.day{min-height:140px}}
 .toast{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translate(-50%,-120px);background:var(--ink);color:var(--inv);padding:10px 16px;border-radius:30px;font-weight:600;font-size:13px;z-index:90;transition:.25s;white-space:nowrap}
 .toast.show{transform:translate(-50%,0)}
 .tg{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;font-size:13.5px;border-bottom:1px solid var(--line)}
@@ -601,6 +645,8 @@ function setSync(st){
 }
 let tt;function toast(m){const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),1700)}
 
+const deskMQ=matchMedia('(min-width:900px)');const isDesk=()=>deskMQ.matches;
+deskMQ.addEventListener?.('change',()=>render());
 /* Tema */
 let THEME='auto';try{THEME=localStorage.getItem('tracker-theme')||'auto'}catch(e){}
 const mq=matchMedia('(prefers-color-scheme: dark)');
@@ -628,7 +674,7 @@ function renderNav(){
 function render(){
   $('title').textContent=S.view==='cal'?'Calendario':'Actividades';
   renderNav();
-  $('view').innerHTML=S.view==='cal'?calView():listView();
+  $('view').innerHTML=S.view==='cal'?calView():`<div class="listwrap">${listView()}</div>`;
   bindView();
 }
 
@@ -674,7 +720,7 @@ function calView(){
     const wsS=Y(ws),weS=Y(addD(ws,6));
     const ev=ACTS.filter(a=>a.inicio&&a.inicio<=weS&&a.fin>=wsS)
       .sort((a,b)=>a.inicio.localeCompare(b.inicio)||dd(b.inicio,b.fin)-dd(a.inicio,a.fin)||a.titulo.localeCompare(b.titulo));
-    const lanes=[],segs=[],MAXL=S.wrap?10:4,hidden=Array(7).fill(0);
+    const lanes=[],segs=[],MAXL=S.wrap?10:(isDesk()?5:4),hidden=Array(7).fill(0);
     ev.forEach(a=>{
       const c0=Math.max(0,dd(wsS,a.inicio)),c1=Math.min(6,dd(wsS,a.fin));
       let l=lanes.findIndex(e=>e<c0);if(l<0){l=lanes.length;lanes.push(-1)}lanes[l]=c1;
@@ -682,7 +728,7 @@ function calView(){
       else for(let c=c0;c<=c1;c++)hidden[c]++;
     });
     const used=Math.min(lanes.length,MAXL),hasMore=hidden.some(Boolean),rows=Math.max(2,used+(hasMore?1:0));
-    let h=`<div class="week" style="grid-template-rows:30px repeat(${rows},${S.wrap?'minmax(17px,auto)':'17px'}) 5px">`;
+    let h=`<div class="week" style="grid-template-rows:var(--numH) repeat(${rows},${S.wrap?'minmax(var(--laneH),auto)':'var(--laneH)'}) 5px">`;
     for(let i=0;i<7;i++){
       const d=addD(ws,i),ds=Y(d);
       h+=`<button class="day ${d.getMonth()!==m.getMonth()?'out':''} ${ds===TODAY?'tod':''} ${ds===S.sel?'sel':''}" style="grid-column:${i+1}" data-day="${ds}"><span class="n">${d.getDate()}</span></button>`;
@@ -694,18 +740,18 @@ function calView(){
     hidden.forEach((n,c)=>{if(n)h+=`<div class="more" style="grid-column:${c+1};grid-row:${used+2}">+${n}</div>`});
     weeks+=h+'</div>';
   }
-  return`<div class="card">
+  return`<div class="calwrap"><div class="card">
     <div class="mhead"><b>${MES[m.getMonth()]} ${m.getFullYear()}</b>
       <div class="nav"><button class="wrapb ${S.wrap?'on':''}" data-wrap title="Texto completo">${ic('wrap')}</button><button class="today" data-today>Hoy</button><button data-mv="-1">${ic('left')}</button><button data-mv="1">${ic('right')}</button></div></div>
     <div class="cal ${S.wrap?'wrap':''}"><div class="dow"><span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span></div>${weeks}</div>
-  </div>${dayPanel()}`;
+  </div>${dayPanel()}</div>`;
 }
 function dayPanel(){
   const d=P(S.sel);
   const list=ACTS.filter(a=>a.inicio<=S.sel&&a.fin>=S.sel).sort((a,b)=>(status(a)==='Completada')-(status(b)==='Completada')||a.inicio.localeCompare(b.inicio));
   const act=list.filter(a=>status(a)!=='Completada').length;
   return`<div class="card dp"><h2>${DIAS[d.getDay()]} ${d.getDate()} de ${MES[d.getMonth()]}</h2>
-    <p class="sub">${act} actividad${act===1?'':'es'} activa${act===1?'':'s'} · mantén presionada una para cambiar su estado</p>
+    <p class="sub">${act} actividad${act===1?'':'es'} activa${act===1?'':'s'} · ${isDesk()?'clic derecho':'mantén presionada'} una para cambiar su estado</p>
     ${list.map(rowHTML).join('')||'<div class="empty">Nada programado este día</div>'}
     <button class="dash" data-addday>${ic('plus')} Agregar actividad este día</button></div>`;
 }
@@ -738,9 +784,9 @@ function listView(){
   return`<div class="search">${ic('search')}<input id="q" placeholder="Buscar actividad" value="${esc(S.q)}"><button class="fbtn" data-cyc>${ic('filter')}</button></div>
   <div class="chips">${chips.map(([k,t])=>`<button class="chip ${f===k?'on':''}" data-f="${k}">${t}</button>`).join('')}
     ${CAT_ORDER.concat('general').filter(k=>used.includes(k)).map(k=>`<button class="chip ${f===k?'on':''}" data-f="${k}" style="--c:${CATS[k].c}"><i class="dt"></i>${CATS[k].n}</button>`).join('')}</div>
-  ${trk.length?`<div class="sect">En seguimiento <small>${trk.length}</small></div>${trk.map(trackCard).join('')}`:''}
-  ${simple.length?`<div class="sect">Actividades <small>${simple.length}</small></div><div class="scard">${simple.map(rowHTML).join('')}</div>`:''}
-  ${closed.length?`<div class="sect">Completadas <small>${closed.length}</small></div>${closed.filter(isTrk).map(trackCard).join('')}${closed.some(a=>!isTrk(a))?`<div class="scard">${closed.filter(a=>!isTrk(a)).map(rowHTML).join('')}</div>`:''}`:''}
+  ${trk.length?`<div class="sect">En seguimiento <small>${trk.length}</small></div><div class="tgrid">${trk.map(trackCard).join('')}</div>`:''}
+  ${simple.length?`<div class="sect">Actividades <small>${simple.length}</small></div><div class="scard ${simple.length>5?'cols':''}">${simple.map(rowHTML).join('')}</div>`:''}
+  ${closed.length?`<div class="sect">Completadas <small>${closed.length}</small></div><div class="tgrid">${closed.filter(isTrk).map(trackCard).join('')}</div>${closed.some(a=>!isTrk(a))?`<div class="scard">${closed.filter(a=>!isTrk(a)).map(rowHTML).join('')}</div>`:''}`:''}
   ${!L.length?'<div class="card empty">Sin resultados</div>':''}`;
 }
 function trackCard(a){
@@ -782,8 +828,15 @@ function bindLP(el){
     LP={el,id:el.dataset.lp,x0:e.clientX,y0:e.clientY,active:false,timer:setTimeout(lpActivate,360)};
     el.classList.add('pressing');
   });
-  el.addEventListener('contextmenu',e=>e.preventDefault());
+  el.addEventListener('contextmenu',e=>{e.preventDefault();
+    if(!matchMedia('(hover:hover) and (pointer:fine)').matches)return;
+    lpCancel();LP={el,id:el.dataset.lp,x0:e.clientX,y0:e.clientY+70,active:false,click:true};lpActivate();
+    if(!LP)return;const L=LP;
+    L.bub.querySelectorAll('.lpi').forEach((x,i)=>{x.style.cursor='pointer';x.onmouseenter=()=>L.bub.querySelectorAll('.lpi').forEach((y,k)=>y.classList.toggle('on',k===i));x.onclick=()=>{lpClose();if(i!==L.cur)setState(L.a,LP_ORDER[i])}});
+    L.ov.onclick=lpClose;
+  });
 }
+function lpClose(){if(!LP)return;LP.bub?.remove();LP.ov?.remove();LP.el.classList.remove('pressing');LP=null}
 function lpCancel(){if(!LP)return;clearTimeout(LP.timer);LP.el.classList.remove('pressing');LP=null}
 function lpActivate(){
   if(!LP)return;
@@ -803,14 +856,14 @@ function lpActivate(){
   LP.bub=b;LP.ov=ov;
 }
 function lpMove(e){
-  if(!LP)return;
+  if(!LP||LP.click)return;
   const dx=e.clientX-LP.x0,dy=e.clientY-LP.y0;
   if(!LP.active){if(Math.hypot(dx,dy)>9)lpCancel();return}
   const sel=Math.max(0,Math.min(2,LP.cur+Math.round(dy/40)));
   if(sel!==LP.sel){LP.sel=sel;navigator.vibrate?.(6);LP.bub.querySelectorAll('.lpi').forEach((x,i)=>x.classList.toggle('on',i===sel))}
 }
 function lpEnd(e){
-  if(!LP)return;
+  if(!LP||LP.click)return;
   const L=LP;clearTimeout(L.timer);L.el.classList.remove('pressing');LP=null;
   if(L.active){
     L.bub.remove();L.ov.remove();
@@ -819,7 +872,8 @@ function lpEnd(e){
 }
 document.addEventListener('pointermove',lpMove,{passive:true});
 document.addEventListener('pointerup',lpEnd);
-document.addEventListener('pointercancel',e=>{if(LP&&LP.active)return;lpCancel()});
+document.addEventListener('pointercancel',e=>{if(LP&&(LP.active||LP.click))return;lpCancel()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(LP&&LP.click)lpClose();else closeSheet()}});
 document.addEventListener('touchmove',e=>{if(LP&&LP.active)e.preventDefault()},{passive:false});
 
 /* =========================================================
