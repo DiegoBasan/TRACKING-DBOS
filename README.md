@@ -46,7 +46,7 @@ match /tracking-dbos/{doc=**} {
 **New repository secret** → nombre `FIREBASE_SERVICE_ACCOUNT`, valor: el contenido completo del `.json`.
 
 **d) En el iPhone** — abre la app en Safari → Compartir → **Agregar a pantalla de inicio** →
-ábrela desde el ícono → ⚙︎ Ajustes → pega la clave VAPID (solo la primera vez) → **Activar notificaciones**.
+ábrela desde el ícono → ⚙︎ Ajustes → **Activar notificaciones** (la clave VAPID ya está en el código).
 
 **e) Probar** — pestaña **Actions** → *Notificaciones* → **Run workflow** → modo `prueba`.
 

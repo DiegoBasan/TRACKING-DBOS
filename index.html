@@ -569,7 +569,8 @@ function openForm(id,day){
 }
 
 /* ---------- Notificaciones (Firebase Cloud Messaging) ---------- */
-let VAPID='',DEVICE=null;
+const VAPID_DEFAULT='BBsqk9d9k3AmZ4FpB21-aIFriFzMkohRAcRKw0mRTc7xpcZS8UGK2b74oFs4Z8HOWmyerZn4CpKj0TORdfftd0w'; // clave pública de Web Push (no es secreta)
+let VAPID=VAPID_DEFAULT,DEVICE=null;
 let DEVICE_ID;try{DEVICE_ID=localStorage.getItem('tracker-device')}catch(e){}
 if(!DEVICE_ID){DEVICE_ID='D'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);try{localStorage.setItem('tracker-device',DEVICE_ID)}catch(e){}}
 const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -660,7 +661,7 @@ COL.onSnapshot({includeMetadataChanges:true},snap=>{
   setSync(snap.metadata.hasPendingWrites?'busy':snap.metadata.fromCache&&!navigator.onLine?'off':'on');
   render();
 },err=>{setSync('off');toast('Firestore: '+err.message)});
-ROOT.onSnapshot(d=>{VAPID=(d.exists&&d.data().vapidKey)||''},()=>{});
+ROOT.onSnapshot(d=>{VAPID=(d.exists&&d.data().vapidKey)||VAPID_DEFAULT},()=>{});
 DEV.doc(DEVICE_ID).get().then(d=>{if(d.exists)DEVICE=d.data()}).catch(()=>{});
 addEventListener('online',()=>setSync('on'));addEventListener('offline',()=>setSync('off'));
 
