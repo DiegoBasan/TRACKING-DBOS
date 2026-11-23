@@ -2,7 +2,7 @@ name: Notificaciones
 
 on:
   schedule:
-    - cron: '7 * * * *'   # cada hora (GitHub puede retrasarlo unos minutos)
+    - cron: '13 * * * *'   # cada hora (GitHub puede retrasarlo unos minutos)
   workflow_dispatch:
     inputs:
       modo:
