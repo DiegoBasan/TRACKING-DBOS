@@ -801,15 +801,28 @@ ${notes.map((n,i)=>(i+1)+'. '+n).join('\n')}`;
   const call=model=>fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(GEM.key)}`,{
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{temperature:.2,responseMimeType:'application/json',responseSchema:schema}})}).then(async r=>({r,j:await r.json()}));
-  let {r,j}=await call(GEM.model||GEM_DEF);
-  if(!r.ok){
-    // Si Google dice que el modelo ya no existe o recomienda otro, se cambia solo y se reintenta
-    const all=[...(j.error?.message||'').matchAll(/models\/(gemini-[\w.\-]*[\w])/g)].map(m=>m[1]);
-    const sug=all.filter(m=>m!==GEM.model).pop();   // el último modelo mencionado = el recomendado
-    const next=sug||(GEM.model!==GEM_DEF?GEM_DEF:null);
-    if(next){({r,j}=await call(next));if(r.ok){GEM.model=next;try{localStorage.setItem('tracker-gemini',JSON.stringify(GEM))}catch(e){}}}
+  // Reintentos: si está saturado (503/429) espera y reintenta, luego prueba otros modelos;
+  // si el modelo ya no existe (404), usa el que recomiende Google y lo guarda.
+  const busy=(r,j)=>r.status===503||r.status===429||/high demand|overloaded|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(j.error?.message||j.error?.status||'');
+  const chain=[GEM.model||GEM_DEF,...['gemini-flash-latest','gemini-flash-lite-latest'].filter(m=>m!==(GEM.model||GEM_DEF))];
+  const btn=$('nAdd');let r,j;
+  for(let k=0;k<chain.length;k++){
+    const model=chain[k];
+    for(let t=0;t<2;t++){
+      ({r,j}=await call(model));
+      if(r.ok||!busy(r,j))break;
+      if(btn)btn.innerHTML='<span class="spin"></span> Reintentando…';
+      await new Promise(res=>setTimeout(res,1500*(t+1)));
+    }
+    if(r.ok)break;
+    if(!busy(r,j)){
+      const all=[...(j.error?.message||'').matchAll(/models\/(gemini-[\w.\-]*[\w])/g)].map(m=>m[1]);
+      const sug=all.filter(m=>m!==model).pop();
+      if(sug&&!chain.includes(sug)){chain.splice(k+1,0,sug);GEM.model=sug;try{localStorage.setItem('tracker-gemini',JSON.stringify(GEM))}catch(e){}}
+    }
+    if(btn&&k<chain.length-1)btn.innerHTML='<span class="spin"></span> Probando otro modelo…';
   }
-  if(!r.ok)throw new Error(j.error?.message||('Gemini '+r.status));
+  if(!r.ok)throw new Error(busy(r,j)?'Google está saturado ahora mismo, intenta en un par de minutos (tus notas siguen guardadas)':(j.error?.message||('Gemini '+r.status)));
   const txt=j.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'{}';
   const out=JSON.parse(txt).tareas||[];
   const okDate=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'');
