@@ -106,8 +106,14 @@ async function enviar(dev, key, title, body, tag) {
   }
 }
 
+// Notificaciones programadas a una hora exacta (tracking-dbos/app/programadas)
+const progSnap = await ROOT.collection('programadas').get();
+const progs = progSnap.docs.map(d => ({ _ref: d.ref, ...d.data() }))
+  .filter(n => !n.enviada && n.cuando && Date.parse(n.cuando) <= now.getTime() + 60e3 && Date.parse(n.cuando) > now.getTime() - 3 * 3600e3);
+
 for (const dev of devs) {
   const id = dev._id;
+  for (const n of progs) await enviar(dev, `prog-${n._ref.id}-${id}`, n.titulo || 'Recordatorio', n.cuerpo || '', 'prog-' + n._ref.id);
 
   if (MODO === 'prueba') {
     await enviar(dev, null, 'Tracker ✓', `Notificaciones funcionando · ${abiertas.length} actividades activas`, 'prueba');
@@ -147,6 +153,8 @@ for (const dev of devs) {
     }
   }
 }
+
+for (const n of progs) await n._ref.set({ enviada: true }, { merge: true });
 
 // Limpieza: tokens inválidos y registros de envíos de más de 7 días
 for (const id of malos) await ROOT.collection('dispositivos').doc(id).delete();
