@@ -77,3 +77,13 @@ Configuración (una vez):
 2. En Notion abre **Task Tracker** → `•••` → **Connections** → agrega tu integración.
 3. GitHub → Settings → Secrets and variables → Actions → secreto **`NOTION_TOKEN`** con ese valor.
 4. Actions → *Sincronizar Notion* → **Run workflow** para probar.
+
+## Rutinas
+Pestaña **Rutinas**: hábitos diarios, por días de la semana, periódicos (cada N días/semanas/meses) y mensuales.
+- Cada rutina tiene su ícono, color y forma de check; un check por horario (ej. Dientes: 5:00, 12:30–16, 20–23).
+- Gráfica tipo contribuciones de GitHub: más brillante = más rutinas completas ese día. Toca un día para revisarlo o marcar atrasadas.
+- **Activa / en pausa** por temporada (Workout, Cocinar…).
+- **DE**: muestra todo en alemán (también las notificaciones).
+- Notificaciones: aviso al iniciar cada horario si no está marcado (Ajustes → Rutinas).
+
+Firestore: `tracking-dbos/app/rutinas/{id}` y `tracking-dbos/app/rutinasLog/{YYYY-MM-DD}`.

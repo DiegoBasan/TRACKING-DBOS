@@ -29,8 +29,8 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 
-const CACHE = 'tracker-v10';
-const SHELL = ['./', 'index.html', 'categorias.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
+const CACHE = 'tracker-v11';
+const SHELL = ['./', 'index.html', 'categorias.js', 'rutinas.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

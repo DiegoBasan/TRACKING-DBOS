@@ -166,6 +166,73 @@ html.solid .cp{background:var(--c);color:#fff;box-shadow:none}
 .prev .ck{width:24px;height:24px;border-radius:50%;border:2px solid var(--mut2);display:grid;place-items:center;flex:none}
 .prev.on .ck{background:var(--ink);border-color:var(--ink);color:var(--inv)}
 .prev .ck svg{width:12px;height:12px;stroke-width:3;opacity:0}.prev.on .ck svg{opacity:1}
+/* ================= RUTINAS ================= */
+.rutwrap{max-width:900px;margin:0 auto}
+.rgraph{padding:14px 14px 10px}
+.gh{display:flex;justify-content:space-between;align-items:baseline;margin:0 2px 8px}
+.gh b{font-size:15px;font-weight:800}.gh small{color:var(--mut);font-size:12px;font-weight:600}
+.gwrap{display:flex;gap:5px}
+.gdow{display:grid;grid-template-rows:12px repeat(7,1fr);gap:3px;font-size:9px;color:var(--mut);font-family:'JetBrains Mono',monospace}
+.gdow span:first-child{grid-row:2}
+.gmain{flex:1;min-width:0}
+.gmon{display:grid;height:12px;font-size:9px;color:var(--mut);font-weight:600;margin-bottom:3px}
+.gmon span{white-space:nowrap}
+.ggrid{display:grid;gap:3px}
+.gcol{display:grid;grid-template-rows:repeat(7,1fr);gap:3px}
+.g{display:block;aspect-ratio:1;border-radius:3.5px;background:var(--soft2);cursor:pointer;transition:transform .15s}
+.g.fut{background:transparent;box-shadow:inset 0 0 0 1px var(--line);cursor:default}
+.g.l1{background:color-mix(in srgb,var(--ink) 22%,var(--soft2))}
+.g.l2{background:color-mix(in srgb,var(--ink) 45%,var(--soft2))}
+.g.l3{background:color-mix(in srgb,var(--ink) 70%,var(--soft2))}
+.g.l4{background:var(--ink);box-shadow:0 0 6px color-mix(in srgb,var(--ink) 55%,transparent)}
+.g.tod{outline:1.5px solid var(--mut);outline-offset:1px}
+.g.sel{outline:2px solid var(--ink);outline-offset:1.5px;transform:scale(1.1)}
+.gleg{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:8px;font-size:10px;color:var(--mut)}
+.gleg .g{width:10px;cursor:default}
+.rday{display:flex;align-items:center;gap:8px;margin:2px 2px 4px}
+.rnd2{width:36px;height:36px;border-radius:50%;background:var(--card);display:grid;place-items:center;flex:none}
+.rnd2 svg{width:17px;height:17px}.rnd2[disabled]{opacity:.3}
+.rdt{flex:1;min-width:0}.rdt b{display:block;font-size:17px;font-weight:800;text-transform:capitalize}.rdt small{color:var(--mut);font-size:12px}
+.rring{--p:0;width:38px;height:38px;border-radius:50%;flex:none;display:grid;place-items:center;background:conic-gradient(var(--ink) calc(var(--p)*1%),var(--soft2) 0)}
+.rring span{width:30px;height:30px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:10.5px;font-weight:800}
+.debtn{height:36px;padding:0 11px;border-radius:18px;background:var(--card);font-weight:800;font-size:12px;letter-spacing:.5px;flex:none;color:var(--mut)}
+.debtn.on{background:var(--ink);color:var(--inv)}
+.rlist{padding:2px 10px}
+.rrow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}
+.rrow:last-child{border-bottom:0}
+.rinfo{display:flex;align-items:center;gap:10px;flex:1;min-width:0;text-align:left}
+.rinfo .t{flex:1;min-width:0}
+.rinfo b{display:block;font-size:14.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rinfo small{display:block;color:var(--mut);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rico{background:color-mix(in srgb,var(--c) 18%,var(--card));color:var(--c)}
+.rrow.dim{opacity:.5}.rrow.alldone .rinfo b{color:var(--mut)}
+.cks-row{display:flex;gap:4px;flex:none}
+.ck2{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:34px;-webkit-user-select:none;user-select:none}
+.ck2 small{font-size:9px;font-weight:700;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ck2.now small{color:var(--ink)}.ck2.late:not(.on) small{color:var(--red)}
+.cks{width:30px;height:30px;overflow:visible}
+.cks .sh{fill:transparent;stroke:var(--c);stroke-width:var(--w,2);stroke-linejoin:round;transition:fill .2s,stroke .2s}
+.cks .ring{fill:none;stroke:var(--c);stroke-width:calc(var(--w,2) * .6);opacity:.55}
+.cks .dash{stroke-dasharray:3.2 2.6}
+.cks .tk{fill:none;stroke:#fff;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:16;stroke-dashoffset:16;transition:stroke-dashoffset .25s .06s}
+.ck2.on .sh{fill:var(--c)}.ck2.on .dash{stroke-dasharray:none}
+.ck2.on .tk{stroke-dashoffset:0}
+.ck2.on .cks{animation:ckpop .4s cubic-bezier(.3,1.6,.5,1)}
+.ck2.now:not(.on) .cks{animation:ckpulse 1.6s ease-in-out infinite}
+@keyframes ckpop{0%{transform:scale(.7)}60%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes ckpulse{50%{transform:scale(1.08);filter:drop-shadow(0 0 4px var(--c))}}
+.ract{height:32px;padding:0 12px;border-radius:16px;background:var(--ink);color:var(--inv);font-weight:700;font-size:12px;flex:none}
+.rnext{font-size:11px;color:var(--mut);font-weight:700;flex:none}
+.shapes{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:8px}
+.shapes button{height:50px;border-radius:14px;background:var(--card);display:grid;place-items:center}
+.shapes button.on{box-shadow:inset 0 0 0 2px var(--ink)}
+.wrow{display:flex;align-items:center;gap:8px;margin-bottom:8px;font-size:13.5px}
+.wrow input,.wrow select{background:var(--soft);border:0;border-radius:11px;padding:9px 10px;outline:0;font-size:14px;min-width:0;flex:1}
+.wrow .rm{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:var(--mut);flex:none}
+.dtog{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:10px}
+.dtog button{height:38px;border-radius:12px;background:var(--soft);font-weight:800}
+.dtog button.on{background:var(--c);color:#fff}
+@media (min-width:900px){.gdow{font-size:10px}.rlist{padding:4px 16px}}
 /* Reordenar en el panel del día */
 .grip{width:28px;height:34px;display:grid;place-items:center;color:var(--mut2);touch-action:none;cursor:grab;flex:none;margin-right:-6px}
 .grip svg{width:16px;height:16px}
@@ -230,12 +297,13 @@ html.solid .cp{background:var(--c);color:#fff;box-shadow:none}
 /* Dock flotante estilo iOS 26 */
 .dock{position:fixed;left:0;right:0;bottom:max(14px,calc(env(safe-area-inset-bottom) - 8px));z-index:30;display:flex;justify-content:space-between;align-items:center;padding:0 21px;pointer-events:none;max-width:560px;margin:0 auto}
 .tabs{pointer-events:auto;display:flex;padding:4px;border-radius:34px;height:68px;gap:0}
-.tabs button{position:relative;z-index:1;width:104px;height:60px;border-radius:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink2);font-size:12px;font-weight:600;letter-spacing:-.1px;transition:color .2s,transform .2s}
+.tabs{--tabW:min(96px,calc((100vw - 42px - 68px - 14px - 8px) / 3))}
+.tabs button{position:relative;z-index:1;width:var(--tabW);height:60px;border-radius:30px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--ink2);font-size:12px;font-weight:600;letter-spacing:-.1px;transition:color .2s,transform .2s}
 .tabs button svg{width:27px;height:27px;stroke-width:1.8}
 .tabs button.on{color:var(--ink)}
 .tabs button.on svg{stroke-width:2.3}
 .tabs button:active{transform:scale(.92)}
-.tpill{position:absolute;z-index:0;top:4px;left:4px;width:104px;height:60px;border-radius:30px;background:var(--glassSel);transition:transform .45s cubic-bezier(.3,1.35,.5,1)}
+.tpill{position:absolute;z-index:0;top:4px;left:4px;width:var(--tabW);height:60px;border-radius:30px;background:var(--glassSel);transition:transform .45s cubic-bezier(.3,1.35,.5,1)}
 .fab{pointer-events:auto;width:68px;height:68px;border-radius:50%;display:grid;place-items:center;color:var(--ink);transition:transform .2s}
 .fab svg{width:28px;height:28px;stroke-width:2.1}
 .fab:active{transform:scale(.9)}
@@ -453,6 +521,7 @@ html.solid .cp{background:var(--c);color:#fff;box-shadow:none}
    ICONOS (trazo 24x24)
    ========================================================= */
 const ICONS={
+  habit:'<path d="M12 3a9 9 0 1 0 9 9"/><path d="M21 4 12 13l-3-3"/>',
   sliders:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
   note:'<path d="M5 3h10l4 4v14H5z"/><path d="M14 3v5h5M8 12h8M8 16h5"/>',
   send:'<path d="M5 12h14M13 6l6 6-6 6"/>',
@@ -640,7 +709,7 @@ const FIELDS=['id','titulo','inicio','fin','estado','tipo','notas','categoria','
    ========================================================= */
 let ACTS=[],STAGES=[];
 const S={view:'cal',month:new Date(P(TODAY).getFullYear(),P(TODAY).getMonth(),1),sel:TODAY,filter:'all',q:''};
-try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list')S.view=v;S.wrap=localStorage.getItem('tracker-wrap')==='1'}catch(e){}
+try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list'||v==='rut')S.view=v;S.wrap=localStorage.getItem('tracker-wrap')==='1'}catch(e){}
 
 function ingest(docs){
   ACTS=docs.filter(a=>a&&a.id&&a.inicio).map(a=>{const o={};FIELDS.forEach(k=>o[k]=a[k]??'');o.tipo=o.tipo||'simple';o.estado=o.estado||'Pendiente';o.fin=o.fin||o.inicio;return o});
@@ -884,22 +953,25 @@ mq.addEventListener?.('change',applyTheme);
 function renderNav(){
   const tabs=$('tabs');
   if(!tabs.querySelector('[data-v]')){
-    tabs.insertAdjacentHTML('beforeend',`<button data-v="cal">${ic('cal')}<span>Calendario</span></button><button data-v="list">${ic('list')}<span>Lista</span></button>`);
+    tabs.insertAdjacentHTML('beforeend',`<button data-v="cal">${ic('cal')}<span>Calendario</span></button><button data-v="list">${ic('list')}<span>Lista</span></button><button data-v="rut">${ic('habit')}<span id="rutTab">Rutinas</span></button>`);
     tabs.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{if(S.view===b.dataset.v){scrollTo({top:0,behavior:'smooth'});return}S.view=b.dataset.v;try{localStorage.setItem('tracker-view',S.view)}catch(e){}render();scrollTo({top:0})});
     $('fab').innerHTML=ic('plus');
-    $('fab').onclick=()=>openForm(null,S.view==='cal'?S.sel:TODAY);
+    $('fab').onclick=()=>S.view==='rut'?openRoutineForm(null):openForm(null,S.view==='cal'?S.sel:TODAY);
   }
   const btns=[...tabs.querySelectorAll('[data-v]')];
   btns.forEach(b=>b.classList.toggle('on',b.dataset.v===S.view));
   const idx=btns.findIndex(b=>b.dataset.v===S.view);
-  $('tpill').style.transform=`translateX(${idx*104}px)`;
+  $('tpill').style.transform=`translateX(calc(var(--tabW) * ${idx}))`;
 }
 function render(){
   const nv=$('nIn')?.value||'',nf=document.activeElement?.id==='nIn';
-  $('title').textContent=S.view==='cal'?'Calendario':'Actividades';
+  const rt=typeof T==='function'?T():null;
+  $('title').textContent=S.view==='cal'?'Calendario':S.view==='rut'?(rt?rt.title:'Rutinas'):'Actividades';
+  if(rt&&$('rutTab'))$('rutTab').textContent=rt.tab;
   renderNav();
-  $('view').innerHTML=S.view==='cal'?calView():`<div class="listwrap">${listView()}</div>`;
+  $('view').innerHTML=S.view==='cal'?calView():S.view==='rut'?(typeof routinesView==='function'?routinesView():''):`<div class="listwrap">${listView()}</div>`;
   bindView();
+  if(S.view==='rut'&&typeof bindRoutines==='function')bindRoutines();
   const ni=$('nIn');if(ni&&nv){ni.value=nv}if(ni&&nf)ni.focus();
 }
 
@@ -1337,7 +1409,7 @@ async function enablePush(){
   const reg=await getReg();
   const token=await firebase.messaging().getToken({vapidKey:VAPID,serviceWorkerRegistration:reg});
   const base={token,ua:navigator.userAgent.slice(0,160),actualizado:TS()};
-  if(!DEVICE)Object.assign(base,{creado:TS(),resumen:true,horaResumen:8,recordatorios:true,nombre:isIOS?'iPhone':'Navegador'});
+  if(!DEVICE)Object.assign(base,{creado:TS(),resumen:true,horaResumen:8,recordatorios:true,rutinas:true,nombre:isIOS?'iPhone':'Navegador'});
   await DEV.doc(DEVICE_ID).set(base,{merge:true});
   DEVICE={...(DEVICE||{resumen:true,horaResumen:8,recordatorios:true}),token};
   return true;
@@ -1375,7 +1447,9 @@ function openSettings(){
         <div style="display:flex;gap:8px;align-items:center"><select id="pH">${hours.map(h=>`<option value="${h}" ${DEVICE.horaResumen==h?'selected':''}>${h}:00</option>`).join('')}</select>
         <label class="sw"><input type="checkbox" id="pR" ${DEVICE.resumen!==false?'checked':''}><i></i></label></div></div>
       <div class="tg"><div>Recordatorios<small>Inicios, entregas y avances del día; entregas de mañana a las 18:00</small></div>
-        <label class="sw"><input type="checkbox" id="pE" ${DEVICE.recordatorios!==false?'checked':''}><i></i></label></div>`:''}
+        <label class="sw"><input type="checkbox" id="pE" ${DEVICE.recordatorios!==false?'checked':''}><i></i></label></div>
+      <div class="tg"><div>Rutinas<small>Aviso al iniciar cada horario de tus rutinas (en alemán si el modo DE está activo)</small></div>
+        <label class="sw"><input type="checkbox" id="pRu" ${DEVICE.rutinas!==false?'checked':''}><i></i></label></div>`:''}
     </div></div>
     ${pushSupported()&&perm!=='denied'?`
       <button class="big ${on?'ghost':''}" style="margin-top:0" data-push>${ic('bell')} ${on?'Volver a registrar este dispositivo':'Activar notificaciones'}</button>
@@ -1402,6 +1476,7 @@ function openSettings(){
   const pH=$('pH');if(pH)pH.onchange=()=>setPref('horaResumen',+pH.value);
   const pR=$('pR');if(pR)pR.onchange=()=>setPref('resumen',pR.checked);
   const pE=$('pE');if(pE)pE.onchange=()=>setPref('recordatorios',pE.checked);
+  const pRu=$('pRu');if(pRu)pRu.onchange=()=>setPref('rutinas',pRu.checked);
 }
 
 /* =========================================================
@@ -1436,5 +1511,6 @@ if('serviceWorker' in navigator&&location.protocol==='https:'){
   try{firebase.messaging().onMessage(m=>{const n=m.notification||m.data||{};toast((n.title?n.title+': ':'')+(n.body||''))})}catch(e){}
 }
 </script>
+<script src="rutinas.js"></script>
 </body>
 </html>

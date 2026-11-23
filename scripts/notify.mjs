@@ -14,11 +14,12 @@ const TZ = process.env.TZ_APP || 'America/Chihuahua';
 const MODO = process.env.MODO || 'auto';
 
 // ---- Fecha/hora local
-const parts = d => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(d).map(p => [p.type, p.value]));
+const parts = d => Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(d).map(p => [p.type, p.value]));
 const now = new Date();
 const p = parts(now);
 const HOY = `${p.year}-${p.month}-${p.day}`;
 const HORA = Number(p.hour);
+const NOWMIN = HORA * 60 + Number(p.minute || 0);
 const t = parts(new Date(now.getTime() + 24 * 3600e3));
 const MANANA = `${t.year}-${t.month}-${t.day}`;
 const MES3 = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -27,6 +28,41 @@ console.log(`Hoy ${HOY} ${HORA}:00 (${TZ}) · modo ${MODO}`);
 
 // ---- Datos
 const acts = (await ROOT.collection('actividades').get()).docs.map(d => d.data()).filter(a => a.id && a.inicio);
+// ---- Rutinas
+const cfg = (await ROOT.get()).data() || {};
+const DE = !!cfg.rutinasDE;
+const ruts = (await ROOT.collection('rutinas').get()).docs.map(d => d.data()).filter(r => r.activa !== false);
+const LOG = {}; (await ROOT.collection('rutinasLog').get()).docs.forEach(d => LOG[d.id] = d.data());
+const addInterval = (ds, n, u) => { const [y, m, dd] = ds.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1, dd)); if (u === 'meses') d.setUTCMonth(d.getUTCMonth() + n); else d.setUTCDate(d.getUTCDate() + n * (u === 'semanas' ? 7 : 1)); return d.toISOString().slice(0, 10) };
+const dowOf = ds => { const [y, m, dd] = ds.split('-').map(Number); return new Date(Date.UTC(y, m - 1, dd)).getUTCDay() };
+function slotsHoy(r) {
+  if (r.tipo === 'diaria') return r.ventanas && r.ventanas.length ? r.ventanas : [{}];
+  if (r.tipo === 'semanal') { const v = (r.dias || {})[dowOf(HOY)]; return v ? (v.length ? v : [{}]) : [] }
+  if (r.tipo === 'mensual') { const [y, m, d] = HOY.split('-').map(Number); const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return d === Math.min(Number(r.diaMes) || 1, last) ? [{}] : [] }
+  if (r.tipo === 'intervalo') {
+    let ld = ''; for (const ds in LOG) if (ds <= HOY && LOG[ds][r.id + '_0'] && ds > ld) ld = ds;
+    const nd = ld ? addInterval(ld, Number(r.cada) || 1, r.unidad || 'dias') : (r.desde || HOY);
+    return nd <= HOY ? [{}] : [];
+  }
+  return [];
+}
+const toMin = s => { if (!s) return null; const [h, m] = s.split(':').map(Number); return h * 60 + (m || 0) };
+const fmtT = s => { const [h, m] = s.split(':'); return Number(h) + (m !== '00' ? ':' + m : '') };
+const rutAvisos = [];   // {key, title, body}
+for (const r of ruts) {
+  slotsHoy(r).forEach((w, i) => {
+    if (LOG[HOY] && LOG[HOY][r.id + '_' + i]) return;            // ya hecho
+    const a = toMin(w.ini), b = toMin(w.fin);
+    const start = a != null ? a : b != null ? b - 180 : 9 * 60;  // sin hora → 9:00; solo "hasta" → 3 h antes
+    const end = b != null ? b : start + 180;
+    if (NOWMIN < start - 20 || NOWMIN >= end) return;
+    const name = DE ? (r.nombreDe || r.nombre) : r.nombre;
+    const when = w.ini && w.fin ? `${fmtT(w.ini)}–${fmtT(w.fin)}` : w.ini ? (DE ? 'ab ' : 'desde ') + fmtT(w.ini) : w.fin ? (DE ? 'bis ' : 'antes de las ') + fmtT(w.fin) : (DE ? 'heute' : 'hoy');
+    rutAvisos.push({ key: `rut-${r.id}-${i}-${HOY}`, title: name, body: (DE ? 'Routine · ' : 'Rutina · ') + when });
+  });
+}
+console.log(`${ruts.length} rutinas activas · ${rutAvisos.length} avisos posibles ahora`);
+
 const devs = (await ROOT.collection('dispositivos').get()).docs.map(d => ({ _id: d.id, ...d.data() })).filter(d => d.token);
 console.log(`${acts.length} actividades · ${devs.length} dispositivos`);
 if (!devs.length) process.exit(0);
@@ -90,6 +126,9 @@ for (const dev of devs) {
     const lista = (entregan.length ? entregan : activasHoy).slice(0, 3).map(a => a.titulo).join(', ');
     await enviar(dev, `resumen-${HOY}-${id}`, 'Tu día', partes.join(' · ') + (lista ? `\n${lista}` : ''), 'resumen');
   }
+
+  // Rutinas
+  if (dev.rutinas !== false) for (const a of rutAvisos) await enviar(dev, `${a.key}-${id}`, a.title, a.body, a.key);
 
   // Recordatorios individuales
   if (dev.recordatorios !== false && HORA >= horaResumen && HORA <= 21) {
