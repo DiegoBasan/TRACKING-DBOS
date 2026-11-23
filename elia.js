@@ -129,8 +129,15 @@ function eliaSettings(box) {
     ${u ? `<div class="tg"><div>Mostrar en el calendario<small>Eventos y pendientes compartidos, en morado</small></div>
       <label class="sw"><input type="checkbox" id="eOn" ${eliaOn ? 'checked' : ''}><i></i></label></div>` : ''}
   </div></div>
+  ${u && E.cid ? `<button class="big ghost" style="margin-top:0" data-ekey>${ic('sparkle')} Copiar llave para Atajos (ideas)</button>` : ''}
   <button class="big ${u ? 'ghost' : ''}" style="margin-top:0" data-elia>${ic(u ? 'x' : 'heart')} ${u ? 'Desconectar Nuestros Planes' : 'Conectar con Nuestros Planes'}</button>`;
   box.querySelector('[data-elia]').onclick = () => u ? E.auth.signOut().then(() => toast('Desconectado')) : eliaLogin();
+  const kb = box.querySelector('[data-ekey]');
+  if (kb) kb.onclick = async () => {
+    const key = `${E.user.uid}|${E.cid}|${E.user.refreshToken}`;
+    try { await navigator.clipboard.writeText(key); toast('Llave copiada: pégala en el atajo. Trátala como contraseña.') }
+    catch (e) { prompt('Copia esta llave (trátala como contraseña):', key) }
+  };
   const on = box.querySelector('#eOn');
   if (on) on.onchange = () => { eliaOn = on.checked; try { localStorage.setItem('tracker-elia', eliaOn ? '1' : '0') } catch (e) { } eliaPush() };
 }
