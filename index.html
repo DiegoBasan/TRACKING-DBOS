@@ -15,6 +15,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="categorias.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
@@ -262,6 +263,7 @@ html.solid .cp{background:var(--c);color:#fff;box-shadow:none}
 .grip svg{width:16px;height:16px}
 .row.dragging{position:relative;z-index:5;background:var(--card);border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.18);transition:none}
 .row.shift{transition:transform .18s}
+.nbadge.eb{border-color:#8b5cf6;color:#8b5cf6;font-family:inherit}
 .nbadge{font-size:9.5px;font-weight:800;width:17px;height:17px;border-radius:5px;display:grid;place-items:center;border:1.5px solid var(--ink2);color:var(--ink2);flex:none;font-family:Georgia,serif}
 .nlink{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:44px;border-radius:15px;background:var(--card);font-weight:700;margin-top:10px;color:var(--ink);text-decoration:none}
 .nlink svg{width:16px;height:16px}
@@ -737,10 +739,10 @@ let ACTS=[],STAGES=[];
 const S={view:'cal',month:new Date(P(TODAY).getFullYear(),P(TODAY).getMonth(),1),sel:TODAY,filter:'all',q:''};
 try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list'||v==='rut')S.view=v;S.wrap=localStorage.getItem('tracker-wrap')==='1';S.nmode=localStorage.getItem('tracker-nmode')||'hoy';S.cmode=localStorage.getItem('tracker-cmode')||'mes'}catch(e){}
 S.nmode=S.nmode||'hoy';S.cmode=S.cmode||'mes';
-let RAW=[];
+let RAW=[],ELIA=[];
 /* Modo normal: de Notion solo las de STATUS "HOY" · Modo Todo: todas */
 const visible=a=>S.nmode==='all'||!(a.fuente==='notion'&&a.notionStatus&&a.notionStatus!=='HOY');
-function applyFilter(){ACTS=RAW.filter(visible)}
+function applyFilter(){ACTS=RAW.filter(visible).concat(ELIA)}
 
 function ingest(docs){
   RAW=docs.filter(a=>a&&a.id&&a.inicio).map(a=>{const o={};FIELDS.forEach(k=>o[k]=a[k]??'');o.tipo=o.tipo||'simple';o.estado=o.estado||'Pendiente';o.fin=o.fin||o.inicio;return o});
@@ -760,10 +762,11 @@ const stCls=s=>s==='Completada'?'cd':s==='En curso'?'cp':'cn';
 const late=a=>status(a)!=='Completada'&&a.fin&&a.fin<TODAY;
 function pill(a){
   const s=status(a);
+  if(a.fuente==='elia'&&a.eKind==='evento')return`<span class="pill">${esc(a.eTipo)}</span>`;
   if(late(a))return`<span class="pill late">Atrasada</span>`;
   return`<span class="pill ${s==='En curso'?'prog':s==='Completada'?'done':''}">${s}</span>`;
 }
-const code=a=>(a.fuente==='notion'?'NOTION-':'ACT-')+String(a.id).slice(-4).toUpperCase();
+const code=a=>(a.fuente==='notion'?'NOTION-':a.fuente==='elia'?'ELIA-':'ACT-')+String(a.id).slice(-4).toUpperCase();
 const ordKey=a=>a.orden===''||a.orden==null?1e6:Number(a.orden);
 /* Orden manual (arrastrar en el panel del día) → luego por fecha */
 const byOrder=(a,b)=>(status(a)==='Completada')-(status(b)==='Completada')||ordKey(a)-ordKey(b)||a.inicio.localeCompare(b.inicio)||dd(b.inicio,b.fin)-dd(a.inicio,a.fin)||a.titulo.localeCompare(b.titulo);
@@ -1096,7 +1099,7 @@ function weekView(){
     rows+=`<div class="wkd ${ds===TODAY?'tod':''} ${ds===S.sel?'sel':''}">
       <button class="wkdate" data-day="${ds}"><small>${DIAS[d.getDay()].slice(0,3)}</small><b>${d.getDate()}</b></button>
       <div class="wkitems">${L.map(a=>{const s=status(a),p=prog(a),multi=a.inicio!==a.fin;
-        return`<div class="wki ${stCls(s)}" style="--c:${colorOf(a)}" data-lp="${esc(a.id)}">${ic(iconOf(a))}<span class="tx">${esc(a.titulo)}</span>${isTrk(a)&&p.n?`<small>${p.d}/${p.n}</small>`:''}${multi&&a.fin>ds?`<small>→ ${sh(a.fin)}</small>`:''}${a.fuente==='notion'?'<span class="nbadge sm">N</span>':''}</div>`}).join('')||'<span class="wkempty">—</span>'}</div></div>`;
+        return`<div class="wki ${stCls(s)}" style="--c:${colorOf(a)}" data-lp="${esc(a.id)}">${ic(iconOf(a))}<span class="tx">${esc(a.titulo)}</span>${isTrk(a)&&p.n?`<small>${p.d}/${p.n}</small>`:''}${multi&&a.fin>ds?`<small>→ ${sh(a.fin)}</small>`:''}${a.fuente==='notion'?'<span class="nbadge sm">N</span>':a.fuente==='elia'?'<span class="nbadge sm eb">E</span>':''}</div>`}).join('')||'<span class="wkempty">—</span>'}</div></div>`;
   }
   return`<div class="calwrap"><div class="card">
     <div class="mhead"><b>${title} ${we.getFullYear()}</b>
@@ -1119,7 +1122,7 @@ function rowHTML(a,grip){
   return`<div class="row ${s==='Completada'?'isdone':''}" data-lp="${esc(a.id)}" data-rid="${esc(a.id)}" style="--c:${c}">
     <div class="ico ${stCls(s)}">${ic(iconOf(a))}</div>
     <div class="t"><b>${esc(a.titulo)}</b><small>${rangeTxt(a)} · ${CATS[catOf(a)].n}${t&&p.n?` · ${p.d}/${p.n} avances`:''}</small>
-    ${t&&p.n?`<div class="mini"><i style="width:${p.pct}%"></i></div>`:''}</div>${a.fuente==='notion'?'<span class="nbadge">N</span>':''}${pill(a)}${grip?`<span class="grip" data-grip>${ic('grip')}</span>`:''}</div>`;
+    ${t&&p.n?`<div class="mini"><i style="width:${p.pct}%"></i></div>`:''}</div>${a.fuente==='notion'?'<span class="nbadge">N</span>':a.fuente==='elia'?'<span class="nbadge eb">E</span>':''}${pill(a)}${grip&&a.fuente!=='elia'?`<span class="grip" data-grip>${ic('grip')}</span>`:''}</div>`;
 }
 
 /* =========================================================
@@ -1241,7 +1244,7 @@ function lpClose(){if(!LP)return;LP.bub?.remove();LP.ov?.remove();LP.el.classLis
 function lpCancel(){if(!LP)return;clearTimeout(LP.timer);LP.el.classList.remove('pressing');LP=null}
 function lpActivate(){
   if(!LP)return;
-  const a=ACTS.find(x=>x.id===LP.id);if(!a){lpCancel();return}
+  const a=ACTS.find(x=>x.id===LP.id);if(!a||a.fuente==='elia'){lpCancel();return}
   LP.active=true;LP.a=a;
   navigator.vibrate?.(12);
   const cur=LP_ORDER.indexOf(status(a));LP.cur=cur;LP.sel=cur;
@@ -1287,6 +1290,7 @@ $('ov').onclick=closeSheet;
 /* Detalle */
 function openDetail(id){
   const a=ACTS.find(x=>x.id===id);if(!a)return;
+  if(a.fuente==='elia'){eliaDetail(a);return}
   const p=prog(a),t=isTrk(a),s=status(a),c=colorOf(a),cat=CATS[catOf(a)];
   const nxt=p.st.find(x=>!x.completada);
   const big=t?(p.n?(nxt?`<button class="big" data-next>${ic('route')} Marcar avance: ${esc(nxt.titulo)}</button>`:`<button class="big ghost" data-undo>${ic('left')} Deshacer último avance</button>`):`<button class="big" data-edit>${ic('plus')} Agregar avances</button>`)
@@ -1520,12 +1524,13 @@ function openSettings(){
     ${pushSupported()&&perm!=='denied'?`
       <button class="big ${on?'ghost':''}" style="margin-top:0" data-push>${ic('bell')} ${on?'Volver a registrar este dispositivo':'Activar notificaciones'}</button>
       ${on?`<button class="big ghost" style="margin-top:0" data-test>${ic('check')} Probar notificación</button>`:''}`:''}
+    <div id="eliaBox"></div>
     <div class="dcard"><div class="h">${ic('db')} Base de datos</div><div class="in" style="padding:4px 14px">
       <div class="kv"><span>Firebase</span><b>diagram-diapp</b></div>
       <div class="kv"><span>Colección</span><b>tracking-dbos</b></div>
       <div class="kv"><span>Actividades</span><b>${ACTS.length}</b></div>
     </div></div>
-    <p class="note">Los avisos los envía GitHub Actions cada hora; pueden tardar unos minutos.</p>`);
+    <p class="note">Los avisos se revisan cada 5 minutos; pueden tardar un poco.</p>`);
   const s=$('sheet');
   s.querySelector('[data-close]').onclick=closeSheet;
   s.querySelectorAll('[data-th]').forEach(b=>b.onclick=()=>{THEME=b.dataset.th;try{localStorage.setItem('tracker-theme',THEME)}catch(e){}applyTheme();s.querySelectorAll('[data-th]').forEach(x=>x.classList.toggle('on',x===b))});
@@ -1543,6 +1548,7 @@ function openSettings(){
   const pR=$('pR');if(pR)pR.onchange=()=>setPref('resumen',pR.checked);
   const pE=$('pE');if(pE)pE.onchange=()=>setPref('recordatorios',pE.checked);
   const pRu=$('pRu');if(pRu)pRu.onchange=()=>setPref('rutinas',pRu.checked);
+  if(typeof eliaSettings==='function')eliaSettings($('eliaBox'));
 }
 
 /* =========================================================
@@ -1578,5 +1584,6 @@ if('serviceWorker' in navigator&&location.protocol==='https:'){
 }
 </script>
 <script src="rutinas.js"></script>
+<script src="elia.js"></script>
 </body>
 </html>
