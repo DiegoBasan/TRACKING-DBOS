@@ -29,7 +29,7 @@ self.addEventListener('notificationclick', e => {
   }));
 });
 
-const CACHE = 'tracker-v11';
+const CACHE = 'tracker-v12';
 const SHELL = ['./', 'index.html', 'categorias.js', 'rutinas.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
 
 self.addEventListener('install', e => {

@@ -27,7 +27,8 @@ const corto = s => { const [, m, d] = s.split('-').map(Number); return `${d} ${M
 console.log(`Hoy ${HOY} ${HORA}:00 (${TZ}) · modo ${MODO}`);
 
 // ---- Datos
-const acts = (await ROOT.collection('actividades').get()).docs.map(d => d.data()).filter(a => a.id && a.inicio);
+// De Notion solo cuentan las que están en STATUS "HOY" (las demás solo se ven en el modo Todo)
+const acts = (await ROOT.collection('actividades').get()).docs.map(d => d.data()).filter(a => a.id && a.inicio && !(a.fuente === 'notion' && a.notionStatus && a.notionStatus !== 'HOY'));
 // ---- Rutinas
 const cfg = (await ROOT.get()).data() || {};
 const DE = !!cfg.rutinasDE;

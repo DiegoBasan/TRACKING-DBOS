@@ -72,6 +72,8 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
 .calwrap>.card{margin-left:calc(var(--sideP,12px) - 12px);margin-right:calc(var(--sideP,12px) - 12px);padding:var(--cardP,14px)}
 .calwrap>.card .mhead{padding:max(0px,calc(12px - var(--cardP,14px))) max(2px,calc(14px - var(--cardP,14px))) 10px}
 .calwrap>.card .cal{border-radius:max(14px,calc(var(--r) - var(--cardP,14px)))}
+.calwrap>.card .mtools,.calwrap>.card .olegend{margin-left:max(2px,calc(14px - var(--cardP,14px)));margin-right:max(2px,calc(14px - var(--cardP,14px)))}
+.calwrap>.card .wk{padding:0 max(0px,calc(8px - var(--cardP,14px))) max(0px,calc(8px - var(--cardP,14px)))}
 
 /* Calendario */
 .mhead{display:flex;align-items:center;justify-content:space-between;padding:0 2px 10px}
@@ -80,6 +82,28 @@ header h1{flex:1;margin:0 0 0 6px;font-size:22px;font-weight:800;letter-spacing:
 .mhead .nav button{width:32px;height:32px;border-radius:50%;background:var(--soft);display:grid;place-items:center}
 .mhead .nav svg{width:17px;height:17px}
 .mhead .wrapb.on{background:var(--ink);color:var(--inv)}
+.mtools{display:flex;gap:6px;align-items:center;margin:0 2px 10px;flex-wrap:wrap}
+.mseg{display:flex;background:var(--soft);border-radius:14px;padding:3px}
+.mseg button{height:30px;padding:0 11px;border-radius:11px;font-weight:700;font-size:12px;color:var(--mut);display:flex;align-items:center;gap:5px}
+.mseg button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.mchip{width:36px;height:36px;border-radius:12px;background:var(--soft);display:grid;place-items:center;margin-left:auto}
+.mchip svg{width:17px;height:17px}.mchip.on{background:var(--ink);color:var(--inv)}
+.nbadge.sm{width:14px;height:14px;font-size:8px;border-width:1.2px;border-radius:4px}
+.olegend{display:flex;gap:12px;margin:-4px 4px 10px;font-size:11.5px;font-weight:600;color:var(--mut)}
+.olegend span{display:flex;align-items:center;gap:5px}.olegend i{width:9px;height:9px;border-radius:3px}
+.wk{display:flex;flex-direction:column;gap:6px}
+.wkd{display:flex;gap:8px;background:var(--soft);border-radius:16px;padding:6px;border:2px solid transparent}
+.wkd.sel{border-color:var(--ink)}
+.wkdate{width:46px;flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:12px;background:var(--card);padding:6px 0}
+.wkdate small{font-size:10.5px;color:var(--mut);font-weight:700;text-transform:uppercase}
+.wkdate b{font-size:19px;font-weight:800}
+.wkd.tod .wkdate{background:var(--ink);color:var(--inv)}.wkd.tod .wkdate small{color:var(--inv);opacity:.7}
+.wkitems{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;justify-content:center}
+.wki{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:11px;font-size:var(--barFS,14px);font-weight:700;line-height:1.2;cursor:pointer;-webkit-user-select:none;user-select:none;transition:transform .15s}
+.wki svg{width:16px;height:16px;flex:none}
+.wki .tx{flex:1;min-width:0;overflow-wrap:anywhere}
+.wki small{font-size:10.5px;font-weight:700;opacity:.75;white-space:nowrap;flex:none}
+.wkempty{color:var(--mut2);font-size:13px;padding:6px 4px}
 .mhead .today{padding:0 12px;width:auto!important;border-radius:20px!important;font-size:12px;font-weight:700}
 .cal{background:var(--soft);border-radius:20px;overflow:hidden}
 .dow{display:grid;grid-template-columns:repeat(7,1fr);font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut);text-align:center;padding:9px 0 6px}
@@ -667,7 +691,9 @@ function detectIcon(text){const t=norm(text);for(const[i,rs]of ICON_RX)if(rs.som
 const autoText=a=>(a.titulo||'')+' '+(a.notas||'');
 const catOf=a=>CATS[a.categoria]?a.categoria:detectCat(autoText(a));
 const iconOf=a=>(a.icono&&ICONS[a.icono])?a.icono:(detectIcon(autoText(a))||CATS[catOf(a)].i);
-const colorOf=a=>CATS[catOf(a)].c;
+/* En modo Todo: azul = Notion, naranja = tuyas, morado = Elia */
+const ORIGIN={notion:'#3b82f6',elia:'#8b5cf6',mine:'#f97316'};
+const colorOf=a=>S.nmode==='all'?(ORIGIN[a.fuente]||ORIGIN.mine):CATS[catOf(a)].c;
 
 /* =========================================================
    FECHAS
@@ -702,17 +728,23 @@ const ROOT=db.collection('tracking-dbos').doc('app');
 const COL=ROOT.collection('actividades');
 const DEV=ROOT.collection('dispositivos');
 const TS=()=>firebase.firestore.FieldValue.serverTimestamp();
-const FIELDS=['id','titulo','inicio','fin','estado','tipo','notas','categoria','icono','orden','fuente','notionUrl'];
+const FIELDS=['id','titulo','inicio','fin','estado','tipo','notas','categoria','icono','orden','fuente','notionUrl','notionStatus'];
 
 /* =========================================================
    ESTADO
    ========================================================= */
 let ACTS=[],STAGES=[];
 const S={view:'cal',month:new Date(P(TODAY).getFullYear(),P(TODAY).getMonth(),1),sel:TODAY,filter:'all',q:''};
-try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list'||v==='rut')S.view=v;S.wrap=localStorage.getItem('tracker-wrap')==='1'}catch(e){}
+try{const v=localStorage.getItem('tracker-view');if(v==='cal'||v==='list'||v==='rut')S.view=v;S.wrap=localStorage.getItem('tracker-wrap')==='1';S.nmode=localStorage.getItem('tracker-nmode')||'hoy';S.cmode=localStorage.getItem('tracker-cmode')||'mes'}catch(e){}
+S.nmode=S.nmode||'hoy';S.cmode=S.cmode||'mes';
+let RAW=[];
+/* Modo normal: de Notion solo las de STATUS "HOY" · Modo Todo: todas */
+const visible=a=>S.nmode==='all'||!(a.fuente==='notion'&&a.notionStatus&&a.notionStatus!=='HOY');
+function applyFilter(){ACTS=RAW.filter(visible)}
 
 function ingest(docs){
-  ACTS=docs.filter(a=>a&&a.id&&a.inicio).map(a=>{const o={};FIELDS.forEach(k=>o[k]=a[k]??'');o.tipo=o.tipo||'simple';o.estado=o.estado||'Pendiente';o.fin=o.fin||o.inicio;return o});
+  RAW=docs.filter(a=>a&&a.id&&a.inicio).map(a=>{const o={};FIELDS.forEach(k=>o[k]=a[k]??'');o.tipo=o.tipo||'simple';o.estado=o.estado||'Pendiente';o.fin=o.fin||o.inicio;return o});
+  applyFilter();
   STAGES=[];
   docs.forEach(a=>(a.etapas||[]).forEach((e,i)=>STAGES.push({...e,actividadId:a.id,orden:i+1,completada:!!e.completada})));
 }
@@ -1009,6 +1041,7 @@ function stepper(a,inter){
    CALENDARIO
    ========================================================= */
 function calView(){
+  if(S.cmode==='sem')return weekView();
   const m=S.month,first=new Date(m.getFullYear(),m.getMonth(),1),lastD=new Date(m.getFullYear(),m.getMonth()+1,0);
   const start=addD(first,-first.getDay());
   const end=addD(lastD,6-lastD.getDay());
@@ -1039,8 +1072,37 @@ function calView(){
   }
   return`<div class="calwrap"><div class="card">
     <div class="mhead"><b>${MES[m.getMonth()]} ${m.getFullYear()}</b>
-      <div class="nav"><button class="wrapb ${S.wrap?'on':''}" data-wrap title="Texto completo">${ic('wrap')}</button><button class="today" data-today>Hoy</button><button data-mv="-1">${ic('left')}</button><button data-mv="1">${ic('right')}</button></div></div>
+      <div class="nav"><button class="today" data-today>Hoy</button><button data-mv="-1">${ic('left')}</button><button data-mv="1">${ic('right')}</button></div></div>
+    ${calTools()}
     <div class="cal ${S.wrap?'wrap':''}"><div class="dow"><span>D</span><span>L</span><span>M</span><span>M</span><span>J</span><span>V</span><span>S</span></div>${weeks}</div>
+  </div><div class="side">${dayPanel()}${notesCard()}</div></div>`;
+}
+function calTools(){
+  return`<div class="mtools">
+    <div class="mseg"><button data-cm="mes" class="${S.cmode==='mes'?'on':''}">Mes</button><button data-cm="sem" class="${S.cmode==='sem'?'on':''}">Semana</button></div>
+    <div class="mseg"><button data-nm="hoy" class="${S.nmode!=='all'?'on':''}"><span class="nbadge sm">N</span> HOY</button><button data-nm="all" class="${S.nmode==='all'?'on':''}">Todo</button></div>
+    ${S.cmode==='mes'?`<button class="mchip ${S.wrap?'on':''}" data-wrap title="Texto completo">${ic('wrap')}</button>`:''}
+  </div>
+  ${S.nmode==='all'?`<div class="olegend"><span><i style="background:${ORIGIN.notion}"></i>Notion</span><span><i style="background:${ORIGIN.mine}"></i>Mías</span><span><i style="background:${ORIGIN.elia}"></i>Elia</span></div>`:''}`;
+}
+/* Vista por semana: un renglón por día, tareas grandes a lo ancho */
+function weekView(){
+  const sel=P(S.sel),ws=addD(sel,-sel.getDay()),we=addD(ws,6);
+  const title=ws.getMonth()===we.getMonth()?`${ws.getDate()} – ${we.getDate()} ${MES[we.getMonth()]}`:`${ws.getDate()} ${MES3[ws.getMonth()]} – ${we.getDate()} ${MES3[we.getMonth()]}`;
+  let rows='';
+  for(let i=0;i<7;i++){
+    const d=addD(ws,i),ds=Y(d);
+    const L=ACTS.filter(a=>a.inicio<=ds&&a.fin>=ds).sort(byOrder);
+    rows+=`<div class="wkd ${ds===TODAY?'tod':''} ${ds===S.sel?'sel':''}">
+      <button class="wkdate" data-day="${ds}"><small>${DIAS[d.getDay()].slice(0,3)}</small><b>${d.getDate()}</b></button>
+      <div class="wkitems">${L.map(a=>{const s=status(a),p=prog(a),multi=a.inicio!==a.fin;
+        return`<div class="wki ${stCls(s)}" style="--c:${colorOf(a)}" data-lp="${esc(a.id)}">${ic(iconOf(a))}<span class="tx">${esc(a.titulo)}</span>${isTrk(a)&&p.n?`<small>${p.d}/${p.n}</small>`:''}${multi&&a.fin>ds?`<small>→ ${sh(a.fin)}</small>`:''}${a.fuente==='notion'?'<span class="nbadge sm">N</span>':''}</div>`}).join('')||'<span class="wkempty">—</span>'}</div></div>`;
+  }
+  return`<div class="calwrap"><div class="card">
+    <div class="mhead"><b>${title} ${we.getFullYear()}</b>
+      <div class="nav"><button class="today" data-today>Hoy</button><button data-wv="-7">${ic('left')}</button><button data-wv="7">${ic('right')}</button></div></div>
+    ${calTools()}
+    <div class="wk">${rows}</div>
   </div><div class="side">${dayPanel()}${notesCard()}</div></div>`;
 }
 function dayPanel(){
@@ -1104,6 +1166,10 @@ function bindView(){
   v.querySelectorAll('[data-day]').forEach(e=>e.onclick=()=>{S.sel=e.dataset.day;const d=P(S.sel);if(d.getMonth()!==S.month.getMonth())S.month=new Date(d.getFullYear(),d.getMonth(),1);render()});
   v.querySelectorAll('[data-mv]').forEach(e=>e.onclick=()=>{S.month=new Date(S.month.getFullYear(),S.month.getMonth()+Number(e.dataset.mv),1);render()});
   const t=v.querySelector('[data-today]');if(t)t.onclick=()=>{S.sel=TODAY;const d=P(TODAY);S.month=new Date(d.getFullYear(),d.getMonth(),1);render()};
+  v.querySelectorAll('[data-wv]').forEach(e=>e.onclick=()=>{S.sel=Y(addD(P(S.sel),+e.dataset.wv));const d=P(S.sel);S.month=new Date(d.getFullYear(),d.getMonth(),1);render()});
+  v.querySelectorAll('[data-cm]').forEach(e=>e.onclick=()=>{S.cmode=e.dataset.cm;try{localStorage.setItem('tracker-cmode',S.cmode)}catch(er){}render()});
+  v.querySelectorAll('[data-nm]').forEach(e=>e.onclick=()=>{S.nmode=e.dataset.nm;try{localStorage.setItem('tracker-nmode',S.nmode)}catch(er){}applyFilter();render();
+    if(S.nmode==='all')toast(`Todo: ${RAW.filter(a=>a.fuente==='notion').length} de Notion · azul Notion, naranja tuyas, morado Elia`)});
   const wb=v.querySelector('[data-wrap]');if(wb)wb.onclick=()=>{S.wrap=!S.wrap;try{localStorage.setItem('tracker-wrap',S.wrap?'1':'0')}catch(e){}render();toast(S.wrap?'Texto completo':'Texto en una línea')};
   const dl=$('dlist');if(dl)bindReorder(dl);
   bindNotes();

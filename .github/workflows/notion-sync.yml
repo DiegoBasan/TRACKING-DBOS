@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '4,19,34,49 * * * *'   # cada 15 min (GitHub puede retrasarlo unos minutos)
   workflow_dispatch:
+    inputs:
+      full:
+        description: 'Sincronización completa (todas las tareas)'
+        type: boolean
+        default: false
 
 concurrency: notion-sync
 
@@ -26,3 +31,4 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           NOTION_DB_ID: 68baf48f9c2943ff973d460a3615664b
           TZ_APP: America/Chihuahua
+          FULL: ${{ github.event.inputs.full == 'true' && '1' || '' }}

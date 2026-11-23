@@ -125,7 +125,7 @@ async function main() {
   prepCats();
   const fsRes = await getText(FS_URL, 'data.json');
   const docs = (JSON.parse(fsRes.t).documents || []).map(d => obj(d.fields || {}));
-  const acts = docs.filter(a => a.id && a.inicio).map(a => ({ ...a, fin: a.fin || a.inicio }));
+  const acts = docs.filter(a => a.id && a.inicio && !(a.fuente === 'notion' && a.notionStatus && a.notionStatus !== 'HOY')).map(a => ({ ...a, fin: a.fin || a.inicio }));
 
   // Rango
   let start, end;
