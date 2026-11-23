@@ -2,6 +2,7 @@
 // Solo las tareas con STATUS = "HOY". Aparecen en la app como categoría Trabajo (azul).
 // - Si la tarea ya no está en "HOY", se quita de la app.
 // - Si en la app la marcas como Completada, aquí se cambia a "Done" en Notion.
+// - Usa la Fecha de cada tarea; si no tiene, la pone en el día de hoy.
 import admin from 'firebase-admin';
 
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
@@ -61,9 +62,8 @@ for (const pg of pages) {
   const fecha = Object.values(pr).find(x => x.type === 'date')?.date;
   const desc = Object.values(pr).find(x => x.type === 'rich_text');
   let ini = fecha?.start?.slice(0, 10) || HOY, fin = (fecha?.end || fecha?.start || '').slice(0, 10) || ini;
-  // Si sigue en "HOY" pero la fecha ya pasó, se muestra en el día de hoy
-  if (fin < HOY) { ini = HOY; fin = HOY }
-  else if (ini > fin) ini = fin;
+  // Se respeta la Fecha del Task Tracker (si no tiene fecha, va en el día de hoy)
+  if (ini > fin) fin = ini;
   const id = 'N' + pg.id.replace(/-/g, '');
   keep.add(id);
   const ref = COL.doc(id), snap = await ref.get(), prev = snap.exists ? snap.data() : {};

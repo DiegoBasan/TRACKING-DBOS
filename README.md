@@ -70,7 +70,7 @@ Si no hay internet muestra lo último guardado. Tocarlo abre la app.
 ## Notion → Tracker (tareas de trabajo en "HOY")
 Cada 15 min, GitHub Actions trae del **Task Tracker** de JOHN DEERE AUTOMATION las tareas con `STATUS = HOY`
 y las pone en el calendario como **Trabajo** (azul) con una marca **N**. Si ya no están en HOY, se quitan.
-Si la marcas **Completada** en la app, en Notion pasa a **Done**. Si su fecha ya pasó y sigue en HOY, aparece en el día de hoy.
+Si la marcas **Completada** en la app, en Notion pasa a **Done**. Cada tarea aparece en su **Fecha** del Task Tracker (sin fecha → hoy).
 
 Configuración (una vez):
 1. https://www.notion.so/profile/integrations → **New integration** (interna) → copia el *Internal Integration Secret*.
