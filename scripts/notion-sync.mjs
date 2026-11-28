@@ -44,7 +44,7 @@ const isComplete = s => (optGroup[s] || '').includes('complete');
 const isProgress = s => s === 'Started' || (optGroup[s] || '').includes('progress');
 
 // 1) Completadas en la app → Done en Notion
-const done = await COL.where('fuente', '==', 'notion').where('estado', '==', 'Completada').get();
+const done = await COL.where('fuente', '==', 'notion').where('estado', '==', 'Completada').where('notionDone', '==', false).get();
 for (const d of done.docs) {
   const x = d.data();
   if (!x.notionId || x.notionDone) continue;

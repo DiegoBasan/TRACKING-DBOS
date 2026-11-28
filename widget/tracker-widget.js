@@ -11,7 +11,7 @@
 
 const APP_URL = 'https://diegobasan.github.io/TRACKING-DBOS/';
 const API_KEY = 'AIzaSyDfWuyJFV2vV8yQAdngrorTMZWn9p0DIqI';
-const FS_URL = 'https://firestore.googleapis.com/v1/projects/diagram-diapp/databases/(default)/documents/tracking-dbos/app/actividades?pageSize=300&key=' + API_KEY;
+const FS_QUERY = 'https://firestore.googleapis.com/v1/projects/diagram-diapp/databases/(default)/documents/tracking-dbos/app:runQuery?key=' + API_KEY;
 const CAT_URL = APP_URL + 'categorias.js';
 const MAX_ROWS = 4;
 
@@ -33,6 +33,22 @@ const fm = FileManager.local();
 const cachePath = n => fm.joinPath(fm.documentsDirectory(), 'tracker-' + n);
 const save = (n, s) => { try { fm.writeString(cachePath(n), s) } catch (e) {} };
 const load = n => { try { return fm.fileExists(cachePath(n)) ? fm.readString(cachePath(n)) : null } catch (e) { return null } };
+
+// Solo lee las actividades recientes (fin >= hace 45 días) para no gastar la cuota de Firestore
+async function getActs() {
+  const d = new Date(Date.now() - 45 * 864e5), desde = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  try {
+    const r = new Request(FS_QUERY); r.method = 'POST'; r.timeoutInterval = 12;
+    r.headers = { 'Content-Type': 'application/json' };
+    r.body = JSON.stringify({ structuredQuery: { from: [{ collectionId: 'actividades' }], where: { fieldFilter: { field: { fieldPath: 'fin' }, op: 'GREATER_THAN_OR_EQUAL', value: { stringValue: desde } } } } });
+    const arr = await r.loadJSON();
+    if (r.response && r.response.statusCode >= 400) throw new Error('HTTP ' + r.response.statusCode);
+    const t = JSON.stringify({ documents: (Array.isArray(arr) ? arr : []).filter(x => x.document).map(x => x.document) });
+    save('data.json', t); return { t, offline: false };
+  } catch (e) {
+    const t = load('data.json'); return { t: t || '{"documents":[]}', offline: true };
+  }
+}
 
 async function getText(url, name) {
   try {
@@ -120,7 +136,7 @@ async function main() {
   CAT = JSON.parse(catRes.t.slice(catRes.t.indexOf('{'), catRes.t.lastIndexOf('}') + 1));
   prepCats();
 
-  const fsRes = await getText(FS_URL, 'data.json');
+  const fsRes = await getActs();
   const docs = (JSON.parse(fsRes.t).documents || []).map(d => obj(d.fields || {}));
   const acts = docs.filter(a => a.id && a.inicio && !(a.fuente === 'notion' && a.notionStatus && a.notionStatus !== 'HOY')).map(a => ({ ...a, fin: a.fin || a.inicio }));
 

@@ -24,16 +24,24 @@ const t = parts(new Date(now.getTime() + 24 * 3600e3));
 const MANANA = `${t.year}-${t.month}-${t.day}`;
 const MES3 = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 const corto = s => { const [, m, d] = s.split('-').map(Number); return `${d} ${MES3[m - 1]}`; };
-console.log(`Hoy ${HOY} ${HORA}:00 (${TZ}) · modo ${MODO}`);
+const HORARIA = Number(p.minute || 0) < 5 || MODO === 'prueba';   // corrida "completa" una vez por hora
+console.log(`Hoy ${HOY} ${HORA}:${p.minute} (${TZ}) · modo ${MODO} · ${HORARIA ? 'completa' : 'ligera'}`);
 
 // ---- Datos
 // De Notion solo cuentan las que están en STATUS "HOY" (las demás solo se ven en el modo Todo)
-const acts = (await ROOT.collection('actividades').get()).docs.map(d => d.data()).filter(a => a.id && a.inicio && !(a.fuente === 'notion' && a.notionStatus && a.notionStatus !== 'HOY'));
+// (Las actividades solo se leen cuando hacen falta, para no gastar la cuota gratis de Firestore)
+let acts = [];
+const cargarActs = async () => { acts = (await ROOT.collection('actividades').get()).docs.map(d => d.data()).filter(a => a.id && a.inicio && !(a.fuente === 'notion' && a.notionStatus && a.notionStatus !== 'HOY')) };
 // ---- Rutinas
 const cfg = (await ROOT.get()).data() || {};
 const DE = !!cfg.rutinasDE;
 const ruts = (await ROOT.collection('rutinas').get()).docs.map(d => d.data()).filter(r => r.activa !== false);
-const LOG = {}; (await ROOT.collection('rutinasLog').get()).docs.forEach(d => LOG[d.id] = d.data());
+const LOG = {};
+const hayIntervalo = ruts.some(r => r.tipo === 'intervalo');
+if (HORARIA && hayIntervalo) {
+  const desde = new Date(now.getTime() - 400 * 24 * 3600e3).toISOString().slice(0, 10);
+  (await ROOT.collection('rutinasLog').where(admin.firestore.FieldPath.documentId(), '>=', desde).get()).docs.forEach(d => LOG[d.id] = d.data());
+} else { const d = await ROOT.collection('rutinasLog').doc(HOY).get(); if (d.exists) LOG[HOY] = d.data(); }
 const addInterval = (ds, n, u) => { const [y, m, dd] = ds.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1, dd)); if (u === 'meses') d.setUTCMonth(d.getUTCMonth() + n); else d.setUTCDate(d.getUTCDate() + n * (u === 'semanas' ? 7 : 1)); return d.toISOString().slice(0, 10) };
 const dowOf = ds => { const [y, m, dd] = ds.split('-').map(Number); return new Date(Date.UTC(y, m - 1, dd)).getUTCDay() };
 function slotsHoy(r) {
@@ -41,6 +49,7 @@ function slotsHoy(r) {
   if (r.tipo === 'semanal') { const v = (r.dias || {})[dowOf(HOY)]; return v ? (v.length ? v : [{}]) : [] }
   if (r.tipo === 'mensual') { const [y, m, d] = HOY.split('-').map(Number); const last = new Date(Date.UTC(y, m, 0)).getUTCDate(); return d === Math.min(Number(r.diaMes) || 1, last) ? [{}] : [] }
   if (r.tipo === 'intervalo') {
+    if (!HORARIA) return [];   // se revisan en la corrida de cada hora
     let ld = ''; for (const ds in LOG) if (ds <= HOY && LOG[ds][r.id + '_0'] && ds > ld) ld = ds;
     const nd = ld ? addInterval(ld, Number(r.cada) || 1, r.unidad || 'dias') : (r.desde || HOY);
     return nd <= HOY ? [{}] : [];
@@ -65,8 +74,18 @@ for (const r of ruts) {
 console.log(`${ruts.length} rutinas activas · ${rutAvisos.length} avisos posibles ahora`);
 
 const devs = (await ROOT.collection('dispositivos').get()).docs.map(d => ({ _id: d.id, ...d.data() })).filter(d => d.token);
-console.log(`${acts.length} actividades · ${devs.length} dispositivos`);
-if (!devs.length) process.exit(0);
+if (!devs.length) { console.log('Sin dispositivos'); process.exit(0); }
+
+// ---- Envíos de hoy: un solo documento por día (enviadosDia/{HOY}) en vez de uno por aviso
+const diaRef = ROOT.collection('enviadosDia').doc(HOY);
+const ENV = new Set(Object.keys((await diaRef.get()).data() || {}));
+const pend = {};
+
+// ¿Hace falta leer las actividades?
+const quiereResumen = d => d.resumen !== false && HORA >= Number(d.horaResumen ?? 8) && HORA <= Number(d.horaResumen ?? 8) + 2 && !ENV.has(`resumen-${HOY}-${d._id}`);
+const quiereRecord = d => d.recordatorios !== false && HORA >= Number(d.horaResumen ?? 8) && HORA <= 21;
+if (MODO === 'prueba' || devs.some(quiereResumen) || (HORARIA && devs.some(quiereRecord))) await cargarActs();
+console.log(`${acts.length} actividades leídas · ${devs.length} dispositivos`);
 
 const etapas = a => a.etapas || [];
 const estado = a => {
@@ -82,9 +101,8 @@ const abiertas = acts.filter(a => estado(a) !== 'Completada');
 const fin = a => a.fin || a.inicio;
 
 // ---- Envío
-const enviados = ROOT.collection('enviados');
-async function yaEnviado(key) { return (await enviados.doc(key).get()).exists; }
-async function marcar(key) { await enviados.doc(key).set({ fecha: HOY, en: admin.firestore.FieldValue.serverTimestamp() }); }
+async function yaEnviado(key) { return ENV.has(key) || key in pend; }
+async function marcar(key) { pend[key] = true; ENV.add(key); }
 
 let malos = [];
 async function enviar(dev, key, title, body, tag) {
@@ -107,7 +125,7 @@ async function enviar(dev, key, title, body, tag) {
 }
 
 // Notificaciones programadas a una hora exacta (tracking-dbos/app/programadas)
-const progSnap = await ROOT.collection('programadas').get();
+const progSnap = await ROOT.collection('programadas').where('enviada', '==', false).get();
 const progs = progSnap.docs.map(d => ({ _ref: d.ref, ...d.data() }))
   .filter(n => !n.enviada && n.cuando && Date.parse(n.cuando) <= now.getTime() + 60e3 && Date.parse(n.cuando) > now.getTime() - 3 * 3600e3);
 
@@ -123,7 +141,7 @@ for (const dev of devs) {
   const horaResumen = Number(dev.horaResumen ?? 8);
 
   // Resumen diario
-  if (dev.resumen !== false && HORA >= horaResumen && HORA <= horaResumen + 2) {
+  if (acts.length && dev.resumen !== false && HORA >= horaResumen && HORA <= horaResumen + 2) {
     const activasHoy = abiertas.filter(a => a.inicio <= HOY && fin(a) >= HOY);
     const entregan = abiertas.filter(a => fin(a) === HOY);
     const atrasadas = abiertas.filter(a => fin(a) < HOY);
@@ -137,8 +155,8 @@ for (const dev of devs) {
   // Rutinas
   if (dev.rutinas !== false) for (const a of rutAvisos) await enviar(dev, `${a.key}-${id}`, a.title, a.body, a.key);
 
-  // Recordatorios individuales
-  if (dev.recordatorios !== false && HORA >= horaResumen && HORA <= 21) {
+  // Recordatorios individuales (se revisan una vez por hora)
+  if (acts.length && HORARIA && dev.recordatorios !== false && HORA >= horaResumen && HORA <= 21) {
     for (const a of abiertas) {
       if (a.inicio === HOY && fin(a) !== HOY) await enviar(dev, `ini-${a.id}-${HOY}-${id}`, 'Empieza hoy', a.titulo);
       if (fin(a) === HOY) await enviar(dev, `fin-${a.id}-${HOY}-${id}`, 'Entrega hoy', a.titulo);
@@ -155,12 +173,17 @@ for (const dev of devs) {
 }
 
 for (const n of progs) await n._ref.set({ enviada: true }, { merge: true });
+if (Object.keys(pend).length) await diaRef.set(pend, { merge: true });
 
 // Limpieza: tokens inválidos y registros de envíos de más de 7 días
 for (const id of malos) await ROOT.collection('dispositivos').doc(id).delete();
-const limite = parts(new Date(now.getTime() - 7 * 24 * 3600e3));
-const viejos = await enviados.where('fecha', '<', `${limite.year}-${limite.month}-${limite.day}`).get();
-const batch = db.batch();
-viejos.docs.forEach(d => batch.delete(d.ref));
-if (!viejos.empty) await batch.commit();
-console.log(`Listo · ${malos.length} tokens eliminados · ${viejos.size} registros viejos borrados`);
+let borrados = 0;
+if (HORARIA && HORA === 3) {   // limpieza una vez al día
+  const limite = parts(new Date(now.getTime() - 7 * 24 * 3600e3)), lim = `${limite.year}-${limite.month}-${limite.day}`;
+  for (const c of ['enviados', 'enviadosDia']) {
+    const q = c === 'enviados' ? ROOT.collection(c).limit(400) : ROOT.collection(c).where(admin.firestore.FieldPath.documentId(), '<', lim);
+    const viejos = await q.get(); const batch = db.batch();
+    viejos.docs.forEach(d => batch.delete(d.ref)); if (!viejos.empty) await batch.commit(); borrados += viejos.size;
+  }
+}
+console.log(`Listo · ${malos.length} tokens eliminados · ${borrados} registros viejos borrados`);
